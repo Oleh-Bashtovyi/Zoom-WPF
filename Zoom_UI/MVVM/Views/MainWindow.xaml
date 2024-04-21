@@ -1,0 +1,69 @@
+﻿<Window x:Class="Zoom_UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Zoom_UI"
+        xmlns:viewmodel="clr-namespace:Zoom_UI.MVVM.ViewModels"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+
+    <Window.DataContext>
+        <viewmodel:StartWindowViewModel/>
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="210"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal">
+            <Border Width="60" Height="60" VerticalAlignment="Center" 
+                    Margin="10 0 0 0"
+                    Style="{StaticResource DefaultBorder}">
+                <Image Source="pack://application:,,,/Assets/user.png" RenderOptions.BitmapScalingMode="HighQuality"/>
+            </Border>
+
+            <TextBlock Margin="10 0 0 0" Style="{StaticResource DefaultTextBlock}">Username:</TextBlock>
+            <TextBox Margin="10 0 0 0" Style="{StaticResource DefaultTextBox}" Width="200" Background="LightYellow"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource DefaultBorder}" Margin="10">
+            <ScrollViewer>
+                <StackPanel Orientation="Vertical">
+
+                    <TextBlock Style="{StaticResource DefaultTextBlock}" Text="Planned meetings" FontStyle="Italic"/>
+
+                    <StackPanel Orientation="Vertical" Name="PlannedMeetingsStackPanel">
+
+                    </StackPanel>
+
+                    <Button Width="170" Margin="20" Command="{Binding }">
+                        Add new planned meetings
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Column="1" Grid.Row="1" Margin="10" Style="{StaticResource DefaultBorder}">
+            <DockPanel>
+                <Border DockPanel.Dock="Bottom" Height="70" Padding="10">
+                    <Button Command="{Binding CreateNewMeetingCommand}">
+                        <Button.ToolTip>
+                            <TextBlock>Create new meeting</TextBlock>
+                        </Button.ToolTip>
+                        <Image Source="pack://application:,,,/Assets/new.png" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Button>
+                </Border>
+
+                <StackPanel></StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,9 +1,10 @@
 ﻿using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
-
 namespace Zoom_UI.MVVM.Converters;
 
+
+[ValueConversion(typeof(bool), typeof(BitmapImage))]
 public class BoolToCameraImageConverter : IValueConverter
 {
 /*    private static BitmapImage cam_on = new(new("pack://siteoforigin:,,,/Zoom_UI;Assets/cam_on.png", UriKind.Absolute));

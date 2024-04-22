@@ -63,8 +63,8 @@ public partial class MeetingWindow : Window
             MessagesContainer.Visibility = Visibility.Visible;
             var column_definition = MainGrid.ColumnDefinitions.Last();
             column_definition.Width = new GridLength(3, GridUnitType.Star);
-            column_definition.MaxWidth = 530;
-            column_definition.MinWidth = 250;
+            column_definition.MaxWidth = 550;
+            column_definition.MinWidth = 320;
             GridSpliter.IsEnabled = true;
         }
 

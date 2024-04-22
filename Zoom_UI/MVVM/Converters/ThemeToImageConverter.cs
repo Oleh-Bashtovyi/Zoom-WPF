@@ -4,6 +4,7 @@ using System.Windows.Media.Imaging;
 
 namespace Zoom_UI.MVVM.Converters;
 
+[ValueConversion(typeof(string), typeof(BitmapImage))]
 internal class ThemeToImageConverter : IValueConverter
 {
 

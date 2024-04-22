@@ -17,7 +17,7 @@ public class MeetingViewModel : ViewModelBase
     private UserViewModel _selectedParticipant;
     private UserViewModel _everyone = new("Everyone", "Everyone");
 
-    public string MeetingId {  get; private set; }
+    public string MeetingId {  get;  }
     public string CurrentTheme
     {
         get => _theme;
@@ -54,6 +54,7 @@ public class MeetingViewModel : ViewModelBase
 
 
     public ICommand SendMessage { get; }
+    public ICommand CopyMeetingId { get; }
     public ICommand SwitchMicrophonState { get; }
     public ICommand SwitchCameraState { get; }
     public ICommand LeaveMeetingCommand {  get; }
@@ -69,7 +70,7 @@ public class MeetingViewModel : ViewModelBase
         _webCameraControl = webCameraControl;
         ParticipantsSelection.Add(_everyone);
         CurrentTheme = "light";
-
+        MeetingId = "12345";
 
         ChangeThemeCommand = new RelayCommandWithoutParameters(() =>
         {
@@ -139,6 +140,8 @@ public class MeetingViewModel : ViewModelBase
         });
 
         CurrentUser.IsMicrophoneOn = true;
+        Message = "THIIIIISS jfdlkjgdkslgn klsdngkdglskgnsk s  sj d jgskgjds gj h sdhgkldshgkghkhs  k sdklgdslhglsdlghg hsh lgdsglgsg";
+        SelectedParticipant = _everyone;
         Task.Run(CaptureProcess);
     }
 

@@ -4,6 +4,8 @@ using System.Windows.Media.Imaging;
 
 namespace Zoom_UI.MVVM.Converters;
 
+
+[ValueConversion(typeof(bool), typeof(BitmapImage))]
 public class BoolToMicrophoneImageConverter : IValueConverter
 {
     /*    private static BitmapImage mic_on = new(new("pack://application:,,,/Zoom_UI;Assets/mic_on.png"));

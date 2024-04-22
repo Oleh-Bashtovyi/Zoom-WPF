@@ -31,4 +31,31 @@ public partial class MeetingWindow : Window
 
         DataContext = new MeetingViewModel(_webCameraControl);
     }
+
+    private void MessagesSectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if(MessagesContainer.Visibility == Visibility.Visible)
+        {
+            MessagesContainer.Visibility = Visibility.Collapsed;
+            var column_definition = MainGrid.ColumnDefinitions.Last();
+            column_definition.Width = new GridLength(1, GridUnitType.Auto);
+            column_definition.MaxWidth = 1;
+            column_definition.MinWidth = 1;
+            GridSpliter.IsEnabled = false;
+        }
+        else
+        {
+            MessagesContainer.Visibility = Visibility.Visible;
+            var column_definition = MainGrid.ColumnDefinitions.Last();
+            column_definition.Width = new GridLength(3, GridUnitType.Star);
+            column_definition.MaxWidth = 530;
+            column_definition.MinWidth = 250;
+            GridSpliter.IsEnabled = true;
+        }
+
+/*        MessagesContainer.Visibility = 
+            MessagesContainer.Visibility == Visibility.Visible ? 
+            Visibility.Collapsed :
+            Visibility.Visible;*/
+    }
 }

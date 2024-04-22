@@ -15,6 +15,7 @@ public class MeetingViewModel : ViewModelBase
 
     public string MeetingId {  get; private set; }
     public UserViewModel CurrentUser {  get; private set; }
+    public ObservableCollection<string> ErrorsList { get; private set; } = new();
     public ObservableCollection<UserViewModel> Participants { get; } = new();
     public ObservableCollection<UserViewModel> ParticipantsSelection { get; } = new();
 
@@ -60,6 +61,14 @@ public class MeetingViewModel : ViewModelBase
         Participants[0].CameraImage = new(new("pack://siteoforigin:,,,/Assets/cam_on.png", UriKind.Absolute));
         Participants[1].CameraImage = new(new("pack://siteoforigin:,,,/Assets/cam_on.png", UriKind.Absolute));
         Participants[2].CameraImage = new(new("pack://siteoforigin:,,,/Assets/cam_on.png", UriKind.Absolute));
+
+        ErrorsList.Add("Some error");
+        ErrorsList.Add("Some error 2");
+        ErrorsList.Add("Some very biiiig error that IDK. and dfffgfgggdg..... difjsdgojdskglj g jdgskdg ;gdsgoigjgsdpgjigoj");
+        ErrorsList.Add("Some error 2");
+        ErrorsList.Add("Some error 2");
+        ErrorsList.Add("Some error 2");
+        ErrorsList.Add("Some error 2");
         CurrentUser = Participants[1];
 
 

@@ -1,10 +1,9 @@
 ﻿using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
-using System.Windows.Media;
-
 namespace Zoom_UI.MVVM.Converters;
 
-internal class BoolToColorConverter : IValueConverter
+internal class BoolToVisibilityConverter : IValueConverter
 {
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -13,11 +12,11 @@ internal class BoolToColorConverter : IValueConverter
 
         if (boolValue)
         {
-            return Brushes.LightYellow;
+            return Visibility.Visible;
         }
         else
         {
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF3F23"));
+            return Visibility.Hidden;
         }
     }
 

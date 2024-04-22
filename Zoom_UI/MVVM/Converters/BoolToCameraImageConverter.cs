@@ -1,12 +1,15 @@
 ﻿using System.Globalization;
+using System.Windows.Data;
 using System.Windows.Media.Imaging;
 
 namespace Zoom_UI.MVVM.Converters;
 
-public class BoolToCameraImageConverter
+public class BoolToCameraImageConverter : IValueConverter
 {
-    private static BitmapImage cam_on = new(new("pack://application:,,,/Zoom_UI;Assets/cam_on.png"));
-    private static BitmapImage cam_off = new(new("pack://application:,,,/Zoom_UI;Assets/cam_off.png"));
+/*    private static BitmapImage cam_on = new(new("pack://siteoforigin:,,,/Zoom_UI;Assets/cam_on.png", UriKind.Absolute));
+    private static BitmapImage cam_off = new(new("pack://siteoforigin:,,,/Zoom_UI;Assets/cam_off.png", UriKind.Absolute));*/
+    private static BitmapImage cam_on = new(new("pack://siteoforigin:,,,/Assets/cam_on.png", UriKind.Absolute));
+    private static BitmapImage cam_off = new(new("pack://siteoforigin:,,,/Assets/cam_off.png", UriKind.Absolute));
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {

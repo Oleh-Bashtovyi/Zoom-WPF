@@ -11,19 +11,24 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using WebEye.Controls.Wpf;
 using Zoom_UI.MVVM.ViewModels;
 
-namespace Zoom_UI.MVVM.Views
+namespace Zoom_UI.MVVM.Views;
+
+
+public partial class MeetingWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for MeetingWindow.xaml
-    /// </summary>
-    public partial class MeetingWindow : Window
+    public MeetingWindow()
     {
-        public MeetingWindow()
-        {
-            DataContext = new MeetingViewModel();
-            InitializeComponent();
-        }
+        InitializeComponent();
+
+
+        var _webCameraControl = new WebCameraControl();
+/*        var _webCameraId = _webCameraControl.GetVideoCaptureDevices().ElementAt(1);
+        _webCameraControl.StartCapture(_webCameraId);*/
+
+
+        DataContext = new MeetingViewModel(_webCameraControl);
     }
 }

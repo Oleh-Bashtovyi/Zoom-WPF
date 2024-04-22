@@ -14,7 +14,10 @@ public class ViewModelBase : INotifyPropertyChanged
 
     protected void SetAndNotifyPropertyChanged<T>(ref T property, T value, [CallerMemberName] string? propertyName = null)
     {
-        property = value;
-        OnPropertyChanged(propertyName);
+        if(!value?.Equals(property) ?? false)
+        {
+            property = value;
+            OnPropertyChanged(propertyName);
+        }
     }
 }

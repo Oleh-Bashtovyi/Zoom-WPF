@@ -11,13 +11,13 @@ public class PacketReader : BinaryReader
         _ns = ns;
     }
 
-    public string ReadMessage()
+    public byte[] ReadArray()
     {
         var length = ReadInt32();
         var msgBuffer = new byte[length];
         _ns.Read(msgBuffer, 0, length);
-
-        var msg = Encoding.ASCII.GetString(msgBuffer);
-        return msg;
+        return msgBuffer;
     }
+
+    public string ReadMessage() => Encoding.UTF8.GetString(ReadArray());
 }

@@ -7,8 +7,9 @@
         xmlns:viewmodel="clr-namespace:Zoom_UI.MVVM.ViewModels"
         xmlns:converters="clr-namespace:Zoom_UI.MVVM.Converters"
         mc:Ignorable="d"
+        Background="{DynamicResource SecondaryBrush}"
         d:DataContext="{d:DesignInstance viewmodel:MeetingViewModel}"
-        Title="MeetingWindow" Height="550" Width="1000">
+        Title="MeetingWindow" Height="600" Width="1100">
 
     <!--<Window.DataContext>
         <viewmodel:MeetingViewModel/>
@@ -19,35 +20,40 @@
         <converters:BoolToMicrophoneImageConverter x:Key="BoolToMicrophoneImageConverter"/>
         <converters:BoolToCameraImageConverter x:Key="BoolToCameraImageConverter"/>
         <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
+        <converters:ThemeToImageConverter x:Key="ThemeToImageConverter"/>
     </Window.Resources>
     
-    <Grid x:Name="MainGrid">
+    <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="90"/>
         </Grid.RowDefinitions>
-
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="5*"/>
             <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="3*" MinWidth="250" MaxWidth="500"/>
+            <ColumnDefinition Width="3*" MinWidth="250" MaxWidth="550"/>
         </Grid.ColumnDefinitions>
 
         <GridSplitter Grid.Column="1" Grid.RowSpan="2" Width="5"  x:Name="GridSpliter" HorizontalAlignment="Stretch"/>
 
 
-        <Border Padding="10" Margin="10" Grid.Row="0" Grid.Column="0" Style="{StaticResource DefaultBorder}">
+        <Border Padding="5" 
+                Margin="10" 
+                Grid.Row="0"
+                Grid.Column="0"
+                Style="{DynamicResource DefaultBorder}"
+                Background="{DynamicResource MainBrush}">
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Participants}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal"/>
+                            <WrapPanel Orientation="Horizontal" Margin="5"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="5" Style="{StaticResource DefaultBorder}" Width="290" Height="205">
-                                <Grid>
+                            <Border Margin="5" Style="{DynamicResource DefaultBorder}" Width="290" Height="205">
+                                <Grid Background="{DynamicResource SecondaryBrush}">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="40"/>
@@ -55,9 +61,9 @@
 
                                     <Image Source="{Binding CameraImage}"/>
                                     <TextBlock Grid.Row="1"
-                                   HorizontalAlignment="Center"
-                                   Style="{StaticResource DefaultTextBlock}"
-                                   Text="{Binding Username}"/>
+                                               HorizontalAlignment="Center"
+                                               Style="{DynamicResource DefaultTextBlock}"
+                                               Text="{Binding Username}"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -69,25 +75,80 @@
         <Border Grid.Column="3" Grid.RowSpan="2" 
                 x:Name="MessagesContainer"
                 Margin="10"
-                Style="{StaticResource DefaultBorder}">
+                Padding="0"
+                Background="{DynamicResource MainBrush}"
+                Style="{DynamicResource DefaultBorder}">
 
-            <TabControl>
-                <TabItem Header="Messages"  FontSize="20">
-                </TabItem>
-                
-                <TabItem Header="Debug errors" FontSize="20">
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding ErrorsList}" >
-                            <ItemsControl.ItemsPanel>
+            <TabControl Background="Transparent">
+                <TabControl.Resources>
+                    <Style TargetType="ItemsControl">
+                        <Setter Property="ItemsPanel">
+                            <Setter.Value>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Vertical"/>
                                 </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
+                
+                
+                <TabItem Header="Messages"  FontSize="20">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="50"/>
+                            <RowDefinition Height="50"/>
+                        </Grid.RowDefinitions>
+
+
+                        <ScrollViewer Grid.Row="0" Margin="5" Style="{DynamicResource VerticalScrollViewer}">
+                            <ItemsControl ItemsSource="{Binding ParticipantsMessages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{DynamicResource DefaultBorder}" 
+                                                Margin="0 8 0 0"
+                                                CornerRadius="5"
+                                                Background="{DynamicResource SecondaryBrush}">
+                                            <StackPanel Orientation="Vertical" Margin="5">
+                                                <TextBlock Style="{DynamicResource MessageTitleTextBlock}">
+                                                    <Run FontWeight="SemiBold"
+                                                         Text="{Binding From}" 
+                                                         Foreground="{DynamicResource WarningBrush}"/>
+                                                    <Run Text="To"/>
+                                                    <Run FontWeight="SemiBold"
+                                                         Text="{Binding To}" 
+                                                         Foreground="{DynamicResource InformativeBrush}"/>
+                                                </TextBlock>
+                                                <TextBlock Margin="0 5 0 0" 
+                                                           Style="{DynamicResource MessageTextBlock}" 
+                                                           Text="{Binding Content}"/>
+                                                <TextBlock Margin="0 7 5 0"
+                                                           HorizontalAlignment="Right"
+                                                           Foreground="{DynamicResource SecondaryFontBrush}"
+                                                           Style="{DynamicResource MessageTitleTextBlock}"
+                                                           Text="{Binding When}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </TabItem>
+                
+                <TabItem Header="Errors" FontSize="20">
+                    <ScrollViewer Style="{DynamicResource VerticalScrollViewer}">
+                        <ItemsControl ItemsSource="{Binding ErrorsList}" >
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Margin="5" Style="{StaticResource DefaultBorder}" Background="LightYellow">
-                                        <TextBlock Text="{Binding}" Margin="0 15 0 0" TextWrapping="Wrap"/>
+                                    <Border Margin="5"
+                                            Padding="5"
+                                            Style="{DynamicResource DefaultBorder}" 
+                                            Background="{DynamicResource SecondaryBrush}">
+                                        <TextBlock HorizontalAlignment="Left" 
+                                                   VerticalAlignment="Top"
+                                                   Text="{Binding}" Margin="0 15 0 0" TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -100,7 +161,11 @@
         
         
         
-        <Border Grid.Row="1" Margin="10" Style="{StaticResource DefaultBorder}">
+        <Border Grid.Row="1" 
+                Margin="10" 
+                Padding="0" 
+                Style="{DynamicResource DefaultBorder}" 
+                Background="{DynamicResource MainBrush}">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
 
                 <StackPanel.Resources>
@@ -110,32 +175,39 @@
                     </Style>
                 </StackPanel.Resources>
 
-                <Button Style="{DynamicResource RoundButton}" 
+                <Button Style="{StaticResource RoundButton}" 
                         Command="{Binding SwitchMicrophonState}"
                         Background="{Binding CurrentUser.IsMicrophoneOn, Converter={StaticResource BoolToColorConverter}}">
                     <Image Source="{Binding CurrentUser.IsMicrophoneOn, Converter={StaticResource BoolToMicrophoneImageConverter}}"/>
                 </Button>
 
                 <Button Margin="10 0 0 0"
-                        Style="{DynamicResource RoundButton}" 
+                        Style="{StaticResource RoundButton}" 
                         Command="{Binding SwitchCameraState}"
                         Background="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToColorConverter}}">
                     <Image Source="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToCameraImageConverter}}"/>
                 </Button>
 
                 <Button Margin="10 0 0 0"
-                        Style="{DynamicResource RoundButton}" 
+                        Style="{StaticResource RoundButton}" 
                         x:Name="MessagesSectionButton"
                         Click="MessagesSectionButton_Click"
-                        Background="LightYellow">
+                        Background="{DynamicResource OnButton}">
                     <Image Source="pack://siteoforigin:,,,/Assets/message.png"/>
+                </Button>
+
+                <Button Margin="10 0 0 0"
+                        Style="{StaticResource RoundButton}" 
+                        Command="{Binding ChangeThemeCommand}"
+                        Background="{DynamicResource OnButton}">
+                    <Image Source="{Binding CurrentTheme, Converter={StaticResource ThemeToImageConverter}}"/>
                 </Button>
 
 
                 <Button Margin="80 0 0 0"
-                        Style="{DynamicResource RoundButton}" 
+                        Style="{StaticResource RoundButton}" 
                         Command="{Binding LeaveMeetingCommand}"
-                        Background="#FF3F23">
+                        Background="{DynamicResource OffButton}">
                     <Image Source="pack://siteoforigin:,,,/Assets/call_off.png"/>
                 </Button>
             </StackPanel>

@@ -34,7 +34,22 @@ public partial class MeetingWindow : Window
 
     private void MessagesSectionButton_Click(object sender, RoutedEventArgs e)
     {
-        if(MessagesContainer.Visibility == Visibility.Visible)
+        /*        if (MessagesContainer.Visibility == Visibility.Visible)
+                {
+                    MessagesContainer.Visibility = Visibility.Collapsed;
+                    var column_definition = MainGrid.ColumnDefinitions.Last();
+                    column_definition.MinWidth = 1;
+                    GridSpliter.IsEnabled = false;
+                }
+                else
+                {
+                    MessagesContainer.Visibility = Visibility.Visible;
+                    var column_definition = MainGrid.ColumnDefinitions.Last();
+                    column_definition.MinWidth = 250;
+                    GridSpliter.IsEnabled = true;
+                }*/
+
+        if (MessagesContainer.Visibility == Visibility.Visible)
         {
             MessagesContainer.Visibility = Visibility.Collapsed;
             var column_definition = MainGrid.ColumnDefinitions.Last();
@@ -53,9 +68,9 @@ public partial class MeetingWindow : Window
             GridSpliter.IsEnabled = true;
         }
 
-/*        MessagesContainer.Visibility = 
-            MessagesContainer.Visibility == Visibility.Visible ? 
-            Visibility.Collapsed :
-            Visibility.Visible;*/
+        /*        MessagesContainer.Visibility =
+                    MessagesContainer.Visibility == Visibility.Visible ?
+                    Visibility.Collapsed :
+                    Visibility.Visible;*/
     }
 }

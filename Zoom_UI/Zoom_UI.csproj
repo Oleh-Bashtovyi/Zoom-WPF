@@ -13,10 +13,12 @@
     <None Remove="Assets\call_off.png" />
     <None Remove="Assets\cam_off.png" />
     <None Remove="Assets\cam_on.png" />
+    <None Remove="Assets\day.png" />
     <None Remove="Assets\message.png" />
     <None Remove="Assets\mic_off.png" />
     <None Remove="Assets\mic_on.png" />
     <None Remove="Assets\new.png" />
+    <None Remove="Assets\night.png" />
     <None Remove="Assets\user.png" />
   </ItemGroup>
 
@@ -38,6 +40,9 @@
     <Resource Include="Assets\cam_off.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\day.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Assets\message.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
@@ -48,6 +53,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Assets\new.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\night.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Assets\user.png">

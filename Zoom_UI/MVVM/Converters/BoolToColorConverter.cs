@@ -16,14 +16,14 @@ internal class BoolToColorConverter : IValueConverter
         {
             //(Brush)Application.Current.FindResource("FromBrush");
             //return Brushes.LightYellow;
-            //return (Brush)Application.Current.FindResource("OnButton");
-            return Application.Current.Resources["OnButton"] as SolidColorBrush;
+            return (Brush)Application.Current.FindResource("OnButton");
+            //return Application.Current.Resources["OnButton"] as SolidColorBrush;
         }
         else
         {
             //return new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF3F23"));
-            //return (Brush)Application.Current.FindResource("OffButton");
-            return Application.Current.Resources["OffButton"] as SolidColorBrush;
+            return (Brush)Application.Current.FindResource("OffButton");
+            //return Application.Current.Resources["OffButton"] as SolidColorBrush;
         }
     }
 

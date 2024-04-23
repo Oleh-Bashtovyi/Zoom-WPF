@@ -1,21 +1,27 @@
 ﻿using System.Collections.ObjectModel;
+using System.Net.Sockets;
+using System.Net;
+using System.Text;
 using System.Windows;
-using System.Windows.Automation;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using WebEye.Controls.Wpf;
-using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Core;
 using Zoom_UI.MVVM.Models;
-
+using System.IO;
+using Zoom_Server.Net;
+using Zoom_UI.Extensions;
+using System.Drawing;
 namespace Zoom_UI.MVVM.ViewModels;
+#pragma warning disable CS8618
 
 public class MeetingViewModel : ViewModelBase
 {
+    private readonly UserViewModel _everyone = new("Everyone", "Everyone");
+    private UserViewModel _selectedParticipant;
     private string _message;
     private string _theme;
-    private UserViewModel _selectedParticipant;
-    private UserViewModel _everyone = new("Everyone", "Everyone");
+
 
     public string MeetingId {  get;  }
     public string CurrentTheme
@@ -53,10 +59,10 @@ public class MeetingViewModel : ViewModelBase
     }
 
 
-    public ICommand SendMessage { get; }
-    public ICommand CopyMeetingId { get; }
-    public ICommand SwitchMicrophonState { get; }
-    public ICommand SwitchCameraState { get; }
+    public ICommand SendMessageCommand { get; }
+    public ICommand CopyMeetingIdCommand { get; }
+    public ICommand SwitchMicrophonStateCommand { get; }
+    public ICommand SwitchCameraStateCommand { get; }
     public ICommand LeaveMeetingCommand {  get; }
     public ICommand ChangeThemeCommand {  get; }
 
@@ -65,25 +71,79 @@ public class MeetingViewModel : ViewModelBase
 
 
     WebCameraControl? _webCameraControl;
+
     public MeetingViewModel(WebCameraControl webCameraControl)
+
     {
+        MeetingId = "12345";
+
+        CopyMeetingIdCommand = new RelayCommand(() => Clipboard.SetText(MeetingId), () => !string.IsNullOrWhiteSpace(MeetingId));
+        SendMessageCommand = new RelayCommand(SendMessage, () => !string.IsNullOrWhiteSpace(Message));
+        SwitchCameraStateCommand = new RelayCommand(SwitchCameraState, null);
+        SwitchMicrophonStateCommand = new RelayCommand(SwitchMicrophoneState, null);
+
+
+
         _webCameraControl = webCameraControl;
         ParticipantsSelection.Add(_everyone);
         CurrentTheme = "light";
-        MeetingId = "12345";
 
-        ChangeThemeCommand = new RelayCommandWithoutParameters(() =>
+        ChangeThemeCommand = new RelayCommand(() =>
         {
-            if(CurrentTheme == "light")
+            try
             {
-                CurrentTheme = "dark";
-                ReplaceTheme("DarkTheme");
+                string serverIP = "127.0.0.1";
+                int serverPort = 9999;
+/*                UdpClient udpClient = new UdpClient();
+                IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIP), serverPort);*/
+
+                TcpClient client = new TcpClient();
+                client.Connect(serverIP, serverPort);
+
+/*                using var client = new TcpClient(serverEndPoint);*/
+
+                var stream = client.GetStream();
+
+                stream.Write([1, 2, 3, 4, 5], 0, 5);
+                stream.Flush();
+
+
+                //==============================================================================================
+                //THIS WORKS
+                //==============================================================================================
+/*                using var ms = new MemoryStream();
+                using var bw = new BinaryWriter(ms);
+                bw.Write((byte)OpCode.Success);
+
+                //bw.Write("Hello world");
+
+                bw.Write((new Bitmap("E:\\work\\course_2\\semester_2\\ookp\\Lab_7\\Zoom\\Zoom_UI\\Assets\\copy.png")).ToByteArray());
+
+
+
+                AddNewMessage(_everyone, _everyone, $"Data sent! Byte array: [{string.Join(",", ms.ToArray())}]");
+
+                udpClient.Send(ms.ToArray(), (int)ms.Length, serverEndPoint);
+
+                AddNewMessage(_everyone, _everyone, "Data sent using UDP!");
+                udpClient.Dispose();*/
             }
-            else
+            catch (Exception ex)
             {
-                CurrentTheme = "light";
-                ReplaceTheme("LightTheme");
+                MessageBox.Show(ex.Message);
+                ErrorsList.Add(ex.Message);
             }
+
+            /*            if(CurrentTheme == "light")
+                        {
+                            CurrentTheme = "dark";
+                            ReplaceTheme("DarkTheme");
+                        }
+                        else
+                        {
+                            CurrentTheme = "light";
+                            ReplaceTheme("LightTheme");
+                        }*/
         });
 
 
@@ -115,13 +175,13 @@ public class MeetingViewModel : ViewModelBase
         AddNewMessage(Participants[0], Participants[0], "Hello this must be visible only to one user!");
 
 
-        SwitchMicrophonState = new RelayCommandWithoutParameters(() => 
+        SwitchMicrophonStateCommand = new RelayCommand(() => 
         {
             CurrentUser.IsMicrophoneOn = !CurrentUser.IsMicrophoneOn;
             Message += "AB";
         });
 
-        SwitchCameraState = new RelayCommandWithoutParameters(() =>
+        SwitchCameraStateCommand = new RelayCommand(() =>
         {
             if(_webCameraControl != null)
             {
@@ -244,9 +304,21 @@ public class MeetingViewModel : ViewModelBase
 
 
 
+    private void SendMessage()
+    {
+        
+    }
+
+    private void SwitchMicrophoneState()
+    {
+
+    }
 
 
+    private void SwitchCameraState()
+    {
 
+    }
 
     private void ReplaceTheme(string newTheme)
     {
@@ -391,3 +463,5 @@ public class MeetingViewModel : ViewModelBase
         ParticipantsSelection.Remove(user);
     }
 }
+
+#pragma warning restore CS8618

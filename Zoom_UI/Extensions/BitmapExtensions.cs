@@ -18,4 +18,13 @@ static class BitmapExtensions
         bi.EndInit();
         return bi;
     }
+
+    public static byte[] ToByteArray(this Bitmap bitmap)
+    {
+        MemoryStream ms = new MemoryStream();
+        bitmap.Save(ms, ImageFormat.Bmp);
+        var result = ms.ToArray();
+        ms.Dispose();
+        return result;
+    }
 }

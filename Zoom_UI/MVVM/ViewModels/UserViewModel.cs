@@ -74,10 +74,12 @@ public class UserViewModel : ViewModelBase
 
         if (words.Length == 2)
         {
-            return words[0].ToUpper() + words[1].ToUpper();
+            var a = words[0][0];
+            var b = words[1][0];
+            return (a.ToString() + b).ToUpper();
         }
 
-        return words[0].ToUpper();
+        return words[0][1].ToString().ToUpper();
     }
 
 

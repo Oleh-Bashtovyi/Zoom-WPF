@@ -4,29 +4,11 @@
              xmlns:local="clr-namespace:Zoom_UI"
              StartupUri="MVVM/Views/MeetingWindow.xaml">
     <Application.Resources>
-
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary x:Name="ThemeResourceDictionary" Source="Themes/LightTheme.xaml"/>
                 <ResourceDictionary x:Name="UiElementsResourceDictionary" Source="Themes/UiElements.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
-
-
-        <!--<SolidColorBrush x:Key="Light_MainBrush" Color="LightYellow"/>
-        <SolidColorBrush x:Key="Light_SecondaryBrush" Color="White"/>
-        <SolidColorBrush x:Key="Light_InformativeBrush" Color="#006400"/>
-        <SolidColorBrush x:Key="Light_WarningBrush" Color="#FF3F23"/>
-        <SolidColorBrush x:Key="Light_OffButton" Color="#FF3F23"/>
-        <SolidColorBrush x:Key="Light_OnButton" Color="White"/>-->
-        
-       
-
-        <!--<DynamicResource  x:Key="Dynamic_WarningBrush" ResourceKey="Light_WarningBrush"/>
-        <DynamicResource  x:Key="Dynamic_InformationBrush" ResourceKey="Light_InformativeBrush"/>
-        <DynamicResource  x:Key="Dynamic_OffButtonBackground" ResourceKey="Light_OffButton"/>
-        <DynamicResource  x:Key="Dynamic_OnButtonBackground" ResourceKey="Light_OnButton"/>
-        <DynamicResource  x:Key="Dynamic_MainBrush" ResourceKey="Light_MainBrush"/>
-        <DynamicResource  x:Key="Dynamic_SecondatyBrush" ResourceKey="Light_SecondaryBrush"/>-->
     </Application.Resources>
 </Application>

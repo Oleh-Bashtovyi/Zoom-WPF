@@ -34,8 +34,8 @@ public class StartWindowViewModel : ViewModelBase
         /*        CreateNewMeetingCommand = new RelayCommand(o => { }, o => !string.IsNullOrWhiteSpace(Username));
                 JoinMeetingCommand = new RelayCommand(o => { }, o => !string.IsNullOrWhiteSpace(Username));*/
 
-        CreateNewMeetingCommand = new RelayCommandWithoutParameters(CreateNewMeeting, CanCreateNewMeeting);
-        JoinMeetingCommand = new RelayCommandWithoutParameters(JoinMeeting, CanJoinMeeting);
+        CreateNewMeetingCommand = new RelayCommand(CreateNewMeeting, CanCreateNewMeeting);
+        JoinMeetingCommand = new RelayCommand(JoinMeeting, CanJoinMeeting);
     }
 
     private void CreateNewMeeting()

@@ -9,7 +9,7 @@
         mc:Ignorable="d"
         Background="{DynamicResource SecondaryBrush}"
         d:DataContext="{d:DesignInstance viewmodel:MeetingViewModel}"
-        Title="MeetingWindow" Height="600" Width="1100">
+        Title="MeetingWindow" Height="615" MinHeight="615" Width="1060" MinWidth="1060">
 
     <!--<Window.DataContext>
         <viewmodel:MeetingViewModel/>
@@ -21,7 +21,6 @@
         <converters:BoolToCameraImageConverter x:Key="BoolToCameraImageConverter"/>
         <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
         <converters:ThemeToImageConverter x:Key="ThemeToImageConverter"/>
-        <local:BindingProxy x:Key="BindingProxyForMicrophone"/>
     </Window.Resources>
     
     <Grid x:Name="MainGrid" Background="Transparent">
@@ -60,7 +59,14 @@
                                         <RowDefinition Height="40"/>
                                     </Grid.RowDefinitions>
 
+                                    <TextBlock FontWeight="Bold" FontSize="40" 
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource MainFontBrush}"
+                                               Text="{Binding ShortName}"/>
                                     <Image Source="{Binding CameraImage}"/>
+                                    
+                                    
                                     <TextBlock Grid.Row="1"
                                                HorizontalAlignment="Center"
                                                Style="{DynamicResource DefaultTextBlock}"
@@ -184,7 +190,7 @@
                                 <Image Source="pack://siteoforigin:,,,/Assets/attachment.png"/>
                             </Button>
                             <Button Grid.Column="1" Grid.Row="1" Width="50" Height="50" 
-                                    Command="{Binding SendMessage}"
+                                    Command="{Binding SendMessageCommand}"
                                     Style="{StaticResource RoundButton}"
                                     Background="{DynamicResource InformativeBrush}">
                                 <Image Source="pack://siteoforigin:,,,/Assets/send.png"/>
@@ -202,9 +208,10 @@
                                             Padding="5"
                                             Style="{DynamicResource DefaultBorder}" 
                                             Background="{DynamicResource SecondaryBrush}">
-                                        <TextBlock HorizontalAlignment="Left" 
+                                        <TextBox HorizontalAlignment="Left"
+                                                 IsReadOnly="True"
                                                    VerticalAlignment="Top"
-                                                   Text="{Binding}" Margin="0 15 0 0" TextWrapping="Wrap"/>
+                                                   Text="{Binding Mode=OneWay}" Margin="0 15 0 0" TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -214,10 +221,13 @@
             </TabControl>
 
         </Border>
+
         
         
-        
-        <Border Grid.Row="1" Margin="10" 
+
+
+        <Border Grid.Row="1" 
+                Margin="10" 
                 Style="{DynamicResource DefaultBorder}" 
                 Background="{DynamicResource MainBrush}">
 
@@ -229,100 +239,99 @@
                         <Setter Property="Margin" Value="5"/>
                     </Style>
                 </DockPanel.Resources>
-                
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" DockPanel.Dock="Left">
-                    <TextBlock FontSize="20" Width="100" TextWrapping="Wrap"
-                               
-                               Margin="5 0 0 0" Text="Meeting code:"/>
+
+                <!--MEETING CODE-->
+                <!--======================================================-->
+                <StackPanel Orientation="Horizontal" 
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center" 
+                            DockPanel.Dock="Left">
+                    <TextBlock FontSize="20"
+                               Width="100" 
+                               TextWrapping="Wrap" 
+                               Margin="5 0 0 0"
+                               Text="Meeting code:" 
+                               Foreground="{DynamicResource MainFontBrush}"/>
                     <TextBox IsReadOnly="True"  FontSize="23"
                              Text="{Binding MeetingId, Mode=OneWay}"
-                             Background="{StaticResource SecondaryBrush}" Width="80" Height="35" Margin="0 0 0 0"/>
-                    <Button Margin="5 0 0 0" Style="{StaticResource RoundButton}"
-                            Command="{Binding CopyMeetingId}"
+                             Background="{StaticResource SecondaryBrush}"
+                             Width="80"
+                             Height="35" 
+                             Margin="0 0 0 0"/>
+                    <Button Margin="5 0 0 0" 
+                            Style="{StaticResource RoundButton}"
+                            Command="{Binding CopyMeetingIdCommand}"
                             Background="{DynamicResource InformativeBrush}">
                         <Image Source="pack://siteoforigin:,,,/Assets/copy.png"/>
                     </Button>
                 </StackPanel>
-                
-                
+
+                <!--BUTTONS-->
+                <!--======================================================-->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                
-
-
-                <Button Command="{Binding SwitchMicrophonState}">
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="5"/>
-                        </Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
-                            <Setter Property="Width" Value="50"/>
-                            <Setter Property="Height" Value="50"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CurrentUser.IsMicrophoneOn}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource OnButton}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Resources>
-                    <Image Source="{Binding CurrentUser.IsMicrophoneOn, Converter={StaticResource BoolToMicrophoneImageConverter}}"/>
-                </Button>
-
-                <Button Margin="10 0 0 0"
-                        Command="{Binding SwitchCameraState}">
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="5"/>
-                        </Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
-                            <Setter Property="Width" Value="50"/>
-                            <Setter Property="Height" Value="50"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CurrentUser.IsCameraOn}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource OnButton}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Resources>
-                    <Image Source="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToCameraImageConverter}}"/>
-                </Button>
-
-                <Button Margin="10 0 0 0"
-                        x:Name="MessagesSectionButton"
-                        Click="MessagesSectionButton_Click"
-                        Style="{StaticResource RoundButton}" 
-                        Background="{DynamicResource OnButton}">
-                    <Image Source="pack://siteoforigin:,,,/Assets/message.png"/>
-                </Button>
-
-                <Button Margin="10 0 0 0"
+                    <!--MICROPHONE-->
+                    <Button Command="{Binding SwitchMicrophonStateCommand}">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
+                                <Setter Property="Width" Value="50"/>
+                                <Setter Property="Height" Value="50"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentUser.IsMicrophoneOn}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource OnButton}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Resources>
+                        <Image Source="{Binding CurrentUser.IsMicrophoneOn, Converter={StaticResource BoolToMicrophoneImageConverter}}"/>
+                    </Button>
+                    <!--CAMERA-->
+                    <Button Command="{Binding SwitchCameraStateCommand}">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
+                                <Setter Property="Width" Value="50"/>
+                                <Setter Property="Height" Value="50"/>
+                                <Setter Property="Margin" Value="10 0 0 0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentUser.IsCameraOn}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource OnButton}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Resources>
+                        <Image Source="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToCameraImageConverter}}"/>
+                    </Button>
+                    <!--MESSAGES-->
+                    <Button Margin="10 0 0 0"
+                            x:Name="MessagesSectionButton"
+                            Click="MessagesSectionButton_Click"
+                            Style="{StaticResource RoundButton}" 
+                            Background="{DynamicResource OnButton}">
+                        <Image Source="pack://siteoforigin:,,,/Assets/message.png"/>
+                    </Button>
+                    <!--THEMES-->
+                    <Button Margin="10 0 0 0"
                         Style="{StaticResource RoundButton}" 
                         Command="{Binding ChangeThemeCommand}"
                         Background="{DynamicResource OnButton}">
-                    <Image Source="{Binding CurrentTheme, Converter={StaticResource ThemeToImageConverter}}"/>
-                </Button>
-
-
-                <Button Margin="80 0 0 0"
-                        Style="{StaticResource RoundButton}" 
-                        Command="{Binding LeaveMeetingCommand}"
-                        Background="{DynamicResource OffButton}">
-                    <Image Source="pack://siteoforigin:,,,/Assets/call_off.png"/>
-                </Button>
-            </StackPanel>
+                        <Image Source="{Binding CurrentTheme, Converter={StaticResource ThemeToImageConverter}}"/>
+                    </Button>
+                    <!--LEAVE-->
+                    <Button Margin="80 0 0 0"
+                            Style="{StaticResource RoundButton}" 
+                            Command="{Binding LeaveMeetingCommand}"
+                            Background="{DynamicResource OffButton}">
+                        <Image Source="pack://siteoforigin:,,,/Assets/call_off.png"/>
+                    </Button>
+                </StackPanel>
             </DockPanel>
-            
-            
         </Border>
-        
-        
-        <!--<ListView ItemsSource="{Binding Users}">
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding Username}"/>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>-->
     </Grid>
 </Window>

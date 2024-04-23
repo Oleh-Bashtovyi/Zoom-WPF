@@ -33,6 +33,13 @@ public class PacketBuilder
         _ms.Write(Encoding.UTF8.GetBytes(msg));
     }
 
+    public void WriteArray(byte[] data)
+    {
+        var arrLength = data.Length;
+        _ms.Write(BitConverter.GetBytes(arrLength));
+        _ms.Write(data);
+    }
+
     public void WriteBitmap(Bitmap bitmap)
     {
         var curPos = _ms.Position;

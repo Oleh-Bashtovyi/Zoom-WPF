@@ -19,6 +19,19 @@ public class UserModel
     }
 
 
+    public override bool Equals(object? obj)
+    {
+        if (obj is UserViewModel vm)
+        {
+            return UID == vm.UID;
+        }
+        else if (obj is UserModel model)
+        {
+            return UID == model.UID;
+        }
+        return false;
+    }
+
     public UserViewModel AsViewModel()
     {
         return new UserViewModel(Username, UID);

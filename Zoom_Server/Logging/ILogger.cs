@@ -8,5 +8,4 @@ public interface ILogger
     public void LogWarning(string message);
     public void LogSuccess(string message);
     public void LogUsedCommand(string message);
-    public void HandleLogWithIdentificators(string message);
 }

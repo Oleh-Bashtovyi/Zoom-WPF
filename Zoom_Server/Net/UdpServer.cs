@@ -6,16 +6,10 @@ namespace Zoom_Server.Net;
 #pragma warning disable CS8618 
 
 
-
-
-
-internal class UdpServer
+internal class UdpServer : OneProcessServer
 {
-    private int _port;
-    private string _host;
-    private ILogger log;
     private UdpClient udpServer;
-    private Task _udpRunningProcess;
+
 
     //Collections
     private HashSet<int> MeetingsIds { get; } = new();
@@ -23,55 +17,22 @@ internal class UdpServer
     private Dictionary<int, FrameBuilder> User_CameraFrame { get; } = new();
 
 
-    //Process
-    private CancellationTokenSource _cancellationTokenSource { get; set; } = new();
-    public bool IsRunning => _udpRunningProcess != null && !_udpRunningProcess.IsCompleted;
 
 
-
-
-
-
-    public UdpServer(string host, int port, ILogger logger)
+    public UdpServer(string host, int port, ILogger logger) : base(host, port, logger)
     {
-        _host = host;
-        _port = port;
-        log = logger;
         udpServer = new UdpClient(_port);
     }
 
 
-    #region Run\Stop
-    internal void Run()
-    {
-        if (IsRunning)
-        {
-            throw new Exception("Server is already running!");
-        }
 
-        _cancellationTokenSource = new();
-        _udpRunningProcess = Task.Run(() => TcpListeningProcess(_cancellationTokenSource.Token));
-    }
-    internal void Stop()
-    {
-        if (!IsRunning)
-        {
-            throw new Exception("Server is not running!");
-        }
-
-        _cancellationTokenSource?.Cancel();
-        _udpRunningProcess = null;
-    }
-    #endregion
-
-
-    private async Task TcpListeningProcess(CancellationToken token)
+    protected override async Task Process(CancellationToken token)
     {
         try
         {
             while (!token.IsCancellationRequested)
             {
-                var clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                //var clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
                 var receivedResult = await udpServer.ReceiveAsync(token);
                 log.LogSuccess($"Server received some data! Data size: {receivedResult.Buffer.Length} bytes");
                 await HandleRequest(receivedResult, token);
@@ -130,6 +91,7 @@ internal class UdpServer
                 bw.Write(OpCode.CreateUser.AsByte());    //Op_code
                 bw.Write(client.Id);                     //User Id
                 bw.Write(client.Username);               //Username
+                log.LogWarning($"Sending new user info: id:{client.Id} username:{client.Username}");
                 await udpServer.SendAsync(repsponse_ms.ToArray(), asyncResult.RemoteEndPoint, token);
             }
             else if(opCode == OpCode.CreateMeeting)

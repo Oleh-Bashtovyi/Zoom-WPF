@@ -13,24 +13,30 @@ using Zoom_Server.Net;
 using Zoom_UI.Extensions;
 using System.Drawing;
 using System.Windows.Threading;
+using Zoom_UI.ClientServer;
+using Zoom_Server.Logging;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
 public class MeetingViewModel : ViewModelBase
 {
     private readonly UserViewModel _everyone = new("Everyone", -1);
+    private readonly UserViewModel _none = new("", -1);
     private UserViewModel _selectedParticipant;
     private UserViewModel _currentUser;
+    private UdpListener _listener;
     private string _message;
-    private string _meetingId;
     private string _theme;
+    private int _meetingId;
+    private int _serverPort = 9999;
+    private string _serverIP = "127.0.0.1";
 
     public string Message
     {
         get => _message;
         set => SetAndNotifyPropertyChanged(ref _message, value);
     }
-    public string MeetingId 
+    public int MeetingId 
     {
         get => _meetingId;
         set => SetAndNotifyPropertyChanged(ref  _meetingId, value);
@@ -75,56 +81,35 @@ public class MeetingViewModel : ViewModelBase
     public MeetingViewModel(WebCameraControl webCameraControl)
     {
         #region Commands_initialization
-        CopyMeetingIdCommand = new RelayCommand(
-            () => CopyMeetingIdToClipboard(), 
-            () => !string.IsNullOrWhiteSpace(MeetingId));
-
-        SendMessageCommand = new RelayCommand(
-            () => SendMessage(), 
-            () => !string.IsNullOrWhiteSpace(Message) && SelectedParticipant != null);
-
-        SwitchCameraStateCommand = new RelayCommand(
-            () => SwitchCameraState(),
-            () => true);
-
-        SwitchMicrophonStateCommand = new RelayCommand(
-            () => SwitchMicrophoneState(), 
-            () => true);
-
-        LeaveMeetingCommand = new RelayCommand(
-            () => LeaveMeeting(),
-            () => true);
+        CopyMeetingIdCommand =        new RelayCommand(CopyMeetingIdToClipboard);
+        SwitchCameraStateCommand =    new RelayCommand(SwitchCameraState);
+        SwitchMicrophonStateCommand = new RelayCommand(SwitchMicrophoneState);
+        LeaveMeetingCommand =         new RelayCommand(LeaveMeeting);
+        SendMessageCommand =          new RelayCommand(SendMessage, () => !string.IsNullOrWhiteSpace(Message) && SelectedParticipant != null);
         #endregion
 
-        #region Initialization_with_data
-        InitializationWithTestData();
-
-        //var inputBitmapImage = new BitmapImage(new("pack://siteoforigin:,,,/Assets/cam_on.png", UriKind.Absolute));
-        var inputBitmapImage = new BitmapImage(new("pack://siteoforigin:,,,/Assets/ggg.png", UriKind.Absolute));
-        var inputImageByteArray = inputBitmapImage.AsByteArray();
-
-        Participants[1].CameraImage = inputImageByteArray.AsBitmapImage();
-        Participants[2].CameraImage = inputBitmapImage;
-        var clusters = inputImageByteArray.AsClusters();
-        var frameBuilder = new FrameBuilder(clusters.Count);
-        var pos = 0;
-        foreach (var cluster in clusters)
-        {
-            frameBuilder.AddFrame(pos++, cluster);
-        }
-        var bytes = frameBuilder.AsByteArray();
-        var outputBitmapImage = bytes.AsBitmapImage();
-        Participants[0].CameraImage = outputBitmapImage;
+        #region Listener_initialization
+        _listener = new(_serverIP, _serverPort, new LoggerWithCollection(ErrorsList));
+        _listener.OnUserCreated +=         _listener_OnUserCreated;
+        _listener.OnMeetingCreated +=      _listener_OnMeetingCreated;
+        _listener.OnUserJoinedMeeting +=   _listener_OnUserJoinedMeeting;
+        _listener.onUserLeftMeeting +=     _listener_onUserLeftMeeting;
+        _listener.OnCameraFrameUpdated +=  _listener_OnCameraFrameUpdated;
         #endregion
 
+        #region Initial_data
+        ParticipantsSelection.Add(_everyone);
+        SelectedParticipant = _everyone;
+        CurrentTheme = "light";
+        CurrentUser = new UserViewModel(string.Empty, 1);
+        CurrentUser.IsMicrophoneOn = false;
+        _udpClient = new UdpClient();
+        _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+        #endregion
 
-
+        AddUserToCollections(CurrentUser);
 
         _webCameraControl = webCameraControl;
-        ParticipantsSelection.Add(_everyone);
-        CurrentTheme = "light";
-        udpClient = new UdpClient();
-
         ChangeThemeCommand = new RelayCommand(() =>
         {
             try
@@ -184,42 +169,32 @@ public class MeetingViewModel : ViewModelBase
                 ErrorsList.Add(ex.Message);
             }
         });
-
-
-
-
-        CurrentUser = Participants[1];
-
-        CurrentUser.IsMicrophoneOn = true;
-        MeetingId = "12345";
         //Task.Run(CaptureProcess);
-
-
-        
-        udpClient = new UdpClient();
-        udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
-
-
-        Task.Run(ListeningProcess);
+        _listener.Run();
     }
 
 
-    private string serverIP = "127.0.0.1";
-    private int serverPort = 9999;
-    //private UdpClient udpClient = new UdpClient("127.0.0.1", 9999);
-    private UdpClient udpClient { get; }
+
+
+
+
+
+    
+
+
+    private UdpClient _udpClient { get; }
 
 
     private async Task AsyncSend()
     {
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIP), serverPort);
+        IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(_serverIP), _serverPort);
         bw.Write((byte)OpCode.CreateMeeting);
 
         //AddNewMessage(_everyone, _everyone, $"Data sent! Byte array: [{string.Join(",", ms.ToArray())}]");
 
-        await udpClient.SendAsync(ms.ToArray(), (int)ms.Length, serverEndPoint);
+        await _udpClient.SendAsync(ms.ToArray(), (int)ms.Length, serverEndPoint);
 
         //AddNewMessage(_everyone, _everyone, "Data sent using UDP!");
     }
@@ -227,32 +202,7 @@ public class MeetingViewModel : ViewModelBase
 
     private async Task ListeningProcess()
     {
-        try
-        {
-            while (true)
-            {
-                var dat = await udpClient.ReceiveAsync();
-                var ms = new MemoryStream(dat.Buffer);
-                var br = new BinaryReader(ms);
 
-                var opCode = (OpCode)br.ReadByte();
-
-                if (opCode == OpCode.CreateMeeting)
-                {
-                    var id = br.ReadString();
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        AddNewMessage(_everyone, _everyone, $"Meeting id: {id}");
-                    });
-                }
-            }
-
-        }
-        catch(Exception ex)
-        {
-            MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            ErrorsList.Add(ex.Message);
-        }
     }
 
 
@@ -358,16 +308,34 @@ public class MeetingViewModel : ViewModelBase
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-
+            CurrentUser.Username = "AAAAAAA";
         });
     }
 
     private void SwitchMicrophoneState()
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        Task.Run(_listener.SomeOper);
+
+/*        Task.Run(async () =>
+        {
+*//*            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+            IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(_serverIP), _serverPort);
+            bw.Write((byte)OpCode.CreateUser);
+            bw.Write("This is Username!");
+            await _udpClient.SendAsync(ms.ToArray(), (int)ms.Length, serverEndPoint);*//*
+
+
+
+
+            //AddNewMessage(_everyone, _everyone, $"Data sent! Byte array: [{string.Join(",", ms.ToArray())}]");
+
+        });*/
+
+/*        Application.Current.Dispatcher.Invoke(() =>
         {
 
-        });
+        });*/
     }
 
     private void LeaveMeeting()
@@ -396,6 +364,67 @@ public class MeetingViewModel : ViewModelBase
         }*/
     }
 
+
+
+
+
+
+
+    #region Listener_events
+    private void _listener_OnCameraFrameUpdated(CameraFrame obj)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            UpdateUserCameraFrame(obj.UserId, obj.Frame);
+        });
+    }
+    private void _listener_onUserLeftMeeting(UserModel obj)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            RemoveUserFromCollections(obj.AsViewModel());
+        });
+    }
+    private void _listener_OnUserJoinedMeeting(UserModel obj)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            AddNewUser(obj.UID, obj.Username);
+        });
+    }
+    private void _listener_OnUserCreated(UserModel obj)
+    {
+
+        Dispatcher.CurrentDispatcher.Invoke(() =>
+        {
+            //CurrentUser = obj.AsViewModel();
+            CurrentUser.UID = obj.UID;
+            CurrentUser.Username = obj.Username;
+        });
+
+/*        Task.Run(async () => await Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            CurrentUser = obj.AsViewModel();
+        }));*/
+
+
+        /*        Application.Current.Dispatcher.Invoke(() =>
+                {
+                });*/
+    }
+    private void _listener_OnMeetingCreated(MeetingInfo obj)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            MeetingId = obj.Id;
+        });
+    }
+    #endregion
+
+
+
+
+
     private void ReplaceTheme(string newTheme)
     {
         var newThemeDict = new ResourceDictionary()
@@ -413,11 +442,6 @@ public class MeetingViewModel : ViewModelBase
         }
         Application.Current.Resources.MergedDictionaries.Add(newThemeDict);
     }
-
-
-
-
-
     private void AddNewMessage(UserViewModel from, UserViewModel to, string content)
     {
         var message = new MessageModel();
@@ -427,8 +451,6 @@ public class MeetingViewModel : ViewModelBase
         message.To = to.Username;
         ParticipantsMessages.Add(message);
     }
-
-
     private void AddNewUser(int uid, string username)
     {
         var existingUser = Participants.FirstOrDefault(x => x.UID == uid);
@@ -444,8 +466,6 @@ public class MeetingViewModel : ViewModelBase
             AddUserToCollections(userViewModel);
         }
     }
-
-
     private void UpdateUserCameraFrame(int uid, BitmapImage bitmap)
     {
         var user = Participants.FirstOrDefault(x => x.UID == uid);
@@ -455,8 +475,6 @@ public class MeetingViewModel : ViewModelBase
             user.CameraImage = bitmap;
         }
     }
-
-
     private void AddUserToCollections(UserViewModel user)
     {
         if (user.UID <= 0)
@@ -467,7 +485,6 @@ public class MeetingViewModel : ViewModelBase
         Participants.Add(user);
         ParticipantsSelection.Add(user);
     }
-
     private void RemoveUserFromCollections(UserViewModel user)
     {
         if(user.UID <= 0)
@@ -478,16 +495,7 @@ public class MeetingViewModel : ViewModelBase
         Participants.Remove(user);
         ParticipantsSelection.Remove(user);
     }
-
-
-    private void CopyMeetingIdToClipboard() => Clipboard.SetText(MeetingId);
-
-
-
-
-
-
-
+    private void CopyMeetingIdToClipboard() => Clipboard.SetText(MeetingId.ToString());
     private void InitializationWithTestData()
     {
         AddNewUser(1, "Alex");

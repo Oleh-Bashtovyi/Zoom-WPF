@@ -78,6 +78,19 @@ public class UserViewModel : ViewModelBase
         return words[0][1].ToString().ToUpper();
     }
 
+    public override bool Equals(object? obj)
+    {
+        if(obj is  UserViewModel vm)
+        {
+            return UID == vm.UID;
+        }
+        else if(obj is UserModel model)
+        {
+            return UID == model.UID;
+        }
+        return false;
+    }
+
 
     public UserModel AsModel() => new UserModel(UID, Username);
 }

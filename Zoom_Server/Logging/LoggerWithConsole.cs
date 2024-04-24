@@ -7,11 +7,6 @@ public class LoggerWithConsole : ILogger
     public LoggerWithConsole() { }
 
 
-    public void HandleLogWithIdentificators(string message)
-    {
-        
-    }
-
 
     public void Log(string message) => LogMessage(message, Console.ForegroundColor);
     public void LogError(string message) => LogMessage(message, ConsoleColor.Red);

@@ -8,7 +8,7 @@ namespace Zoom_UI.MVVM.ViewModels;
 
 public class UserViewModel : ViewModelBase
 {
-    private string _uid;
+    private int _uid;
     private string _username;
     private BitmapImage? _cameraImage;
     private bool _isMicrophoneOn;
@@ -18,18 +18,16 @@ public class UserViewModel : ViewModelBase
     public bool IsCameraOn => CameraImage != null;
 
 
-    public string UID
+    public int UID
     {
         get => _uid;
         set => SetAndNotifyPropertyChanged(ref _uid, value);
     }
-
     public bool IsMicrophoneOn
     {
         get => _isMicrophoneOn;
         set => SetAndNotifyPropertyChanged(ref _isMicrophoneOn, value);
     }
-
     public string Username
     {
         get => _username;
@@ -39,8 +37,6 @@ public class UserViewModel : ViewModelBase
             OnPropertyChanged(nameof(ShortName));
         }
     }
-
-
     public BitmapImage? CameraImage
     {
         get => _cameraImage;
@@ -55,7 +51,7 @@ public class UserViewModel : ViewModelBase
 
 
     public UserViewModel() { }
-    public UserViewModel(string username, string uid)
+    public UserViewModel(string username, int uid)
     {
         Username = username;
         UID = uid;

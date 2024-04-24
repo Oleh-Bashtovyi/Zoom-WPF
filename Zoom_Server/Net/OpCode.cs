@@ -7,24 +7,31 @@ public enum OpCode
     None,
     Success,
     Error,
-    //Specific
+    //Creation
     //=============================
     GetId,
     ChangeName,
+    CreateUser,
+    CreateMeeting,
     //meeting joining
     //=============================
-    ParticipantJoinUsingCode,
-    ParticipantCreatesMeeting,
+    Participant_JoinMeetingUsingCode,
     //meeting process
     //=============================
-    ParticipantJoininMeeting,
-    ParticipantLeftMeeting,
-    PatricipantCameraFrameSent,
-    ParticipantSpeek,
+    Participant_JoinedMeeting,
+    Participant_LeftMeeting,
+    //camera frame
+    //=============================
+    Participant_CameraFrame_Create,
+    Participant_CameraFrame_Update,
+    //speek
+    //=============================
+    Participant_SpeekFrame_Create,
+    Participant_SpeekFrame_Update,
     //messages
     //=============================
-    ParticipantMessageSentToEveryone,
-    ParticipantMessageSentPrivate,
+    Participant_MessageSent_ToEveryone,
+    Participant_MessageSent_Private,
 }
 //=====================================================
 //CONNECTION TO SERVER:

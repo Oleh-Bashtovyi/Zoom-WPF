@@ -13,7 +13,7 @@ internal class Client
     public Client(IPEndPoint iPEndPoint, string username)
     {
         Id = IdGenerator.NewId();
-        MeetingId = IdGenerator.NewId();
+        MeetingId = -1;
         Username = username;
         IPAddress = iPEndPoint;
     }

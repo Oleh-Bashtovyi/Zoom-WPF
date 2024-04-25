@@ -6,6 +6,7 @@ internal static class IdGenerator
 
     internal static int NewId()
     {
-        return ++currentId;
+        currentId++;
+        return currentId;
     }
 }

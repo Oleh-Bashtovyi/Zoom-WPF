@@ -15,6 +15,8 @@ using System.Drawing;
 using System.Windows.Threading;
 using Zoom_UI.ClientServer;
 using Zoom_Server.Logging;
+using static Zoom_Server.Net.PacketReader;
+using System.Windows.Media.Media3D;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -24,13 +26,14 @@ public class MeetingViewModel : ViewModelBase
     private readonly UserViewModel _none = new("", -1);
     private UserViewModel _selectedParticipant;
     private UserViewModel _currentUser;
-    private UdpListener _listener;
+    private UdpComunicator _listener;
     private string _message;
     private string _theme;
     private int _meetingId;
     private int _serverPort = 9999;
     private string _serverIP = "127.0.0.1";
 
+    #region PROPERTIES
     public string Message
     {
         get => _message;
@@ -56,6 +59,7 @@ public class MeetingViewModel : ViewModelBase
         get => _selectedParticipant;
         set => SetAndNotifyPropertyChanged(ref _selectedParticipant, value);  
     }
+    #endregion
 
     #region COLLECCTIONS
     public ObservableCollection<string> ErrorsList { get; } = new();
@@ -103,64 +107,17 @@ public class MeetingViewModel : ViewModelBase
         CurrentTheme = "light";
         CurrentUser = new UserViewModel(string.Empty, 1);
         CurrentUser.IsMicrophoneOn = false;
-        _udpClient = new UdpClient();
-        _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+        _listener.Run();
         #endregion
 
         AddUserToCollections(CurrentUser);
+
 
         _webCameraControl = webCameraControl;
         ChangeThemeCommand = new RelayCommand(() =>
         {
             try
             {
-                /*                string serverIP = "127.0.0.1";
-                                int serverPort = 9999;
-                *//*                UdpClient udpClient = new UdpClient();
-                                IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIP), serverPort);*//*
-
-                                TcpClient client = new TcpClient();
-                                client.Connect(serverIP, serverPort);
-
-                                *//*                using var client = new TcpClient(serverEndPoint);*//*
-
-                                Task.Run(async () => 
-                                {
-                                    var stream = client.GetStream();
-
-                                    //var data = new byte[]{ 1, 2, 3, 4, 5 };
-
-                                    var data = (new Bitmap("E:\\work\\course_2\\semester_2\\ookp\\Lab_7\\Zoom\\Zoom_UI\\Assets\\copy.png")).ToByteArray();
-                                    await stream.WriteAsync(data, 0, data.Length);
-                                    await stream.FlushAsync();
-                                });*/
-                /*                var stream = client.GetStream();
-
-                                stream.Write([1, 2, 3, 4, 5], 0, 5);
-                                stream.Flush();*/
-
-
-                //==============================================================================================
-                //THIS WORKS
-                //==============================================================================================
-                /*                using var ms = new MemoryStream();
-                                using var bw = new BinaryWriter(ms);
-                                IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(serverIP), serverPort);
-                                bw.Write((byte)OpCode.CreateMeeting);
-
-                                //bw.Write("Hello world");
-
-                               // bw.Write((new Bitmap("E:\\work\\course_2\\semester_2\\ookp\\Lab_7\\Zoom\\Zoom_UI\\Assets\\copy.png")).ToByteArray());
-
-
-
-                                AddNewMessage(_everyone, _everyone, $"Data sent! Byte array: [{string.Join(",", ms.ToArray())}]");
-
-                                udpClient.Send(ms.ToArray(), (int)ms.Length, serverEndPoint);
-
-                                AddNewMessage(_everyone, _everyone, "Data sent using UDP!");*/
-                //udpClient.Dispose();
-                //Task.Run(AsyncSend);
                 AddNewMessage(_everyone, _everyone, "Sending begun!");
             }
             catch (Exception ex)
@@ -170,7 +127,7 @@ public class MeetingViewModel : ViewModelBase
             }
         });
         //Task.Run(CaptureProcess);
-        _listener.Run();
+
     }
 
 
@@ -182,28 +139,10 @@ public class MeetingViewModel : ViewModelBase
     
 
 
-    private UdpClient _udpClient { get; }
 
 
-    private async Task AsyncSend()
-    {
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(_serverIP), _serverPort);
-        bw.Write((byte)OpCode.CreateMeeting);
-
-        //AddNewMessage(_everyone, _everyone, $"Data sent! Byte array: [{string.Join(",", ms.ToArray())}]");
-
-        await _udpClient.SendAsync(ms.ToArray(), (int)ms.Length, serverEndPoint);
-
-        //AddNewMessage(_everyone, _everyone, "Data sent using UDP!");
-    }
 
 
-    private async Task ListeningProcess()
-    {
-
-    }
 
 
     private async void CaptureProcess()
@@ -239,12 +178,6 @@ public class MeetingViewModel : ViewModelBase
             var mes = ex.Message;
         }
 
-
-
-
-
-
-
         /*        try
                 {
 
@@ -261,20 +194,6 @@ public class MeetingViewModel : ViewModelBase
                 catch (Exception ex)
                 {
                     var mes = ex.Message;
-                }*/
-
-
-
-
-
-
-
-        // Convert frame to binary array
-        /*        byte[] frameData;
-                using (MemoryStream ms = new MemoryStream())
-                {
-                    frame.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-                    frameData = ms.ToArray();
                 }*/
 
 
@@ -314,28 +233,11 @@ public class MeetingViewModel : ViewModelBase
 
     private void SwitchMicrophoneState()
     {
-        Task.Run(_listener.SomeOper);
+        //Task.Run(_listener.Send_CrateUser);
 
-/*        Task.Run(async () =>
-        {
-*//*            using var ms = new MemoryStream();
-            using var bw = new BinaryWriter(ms);
-            IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(_serverIP), _serverPort);
-            bw.Write((byte)OpCode.CreateUser);
-            bw.Write("This is Username!");
-            await _udpClient.SendAsync(ms.ToArray(), (int)ms.Length, serverEndPoint);*//*
-
-
-
-
-            //AddNewMessage(_everyone, _everyone, $"Data sent! Byte array: [{string.Join(",", ms.ToArray())}]");
-
-        });*/
-
-/*        Application.Current.Dispatcher.Invoke(() =>
-        {
-
-        });*/
+        Task.Run(async () => await _listener.Send_CrateUser("USER 1!"));
+        Task.Run(async () => await _listener.Send_CrateUser("USER 2!"));
+        Task.Run(_listener.Send_CreateMeeting);
     }
 
     private void LeaveMeeting()
@@ -348,20 +250,23 @@ public class MeetingViewModel : ViewModelBase
 
     private void SwitchCameraState()
     {
-/*        if (_webCameraControl != null)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (_webCameraControl.IsCapturing)
+        var frame = new Bitmap( "E:\\downloads\\ggg.png");
+        Task.Run(async () => await _listener.Send_CameraFrame(Participants[1].UID, frame));
+
+        /*        if (_webCameraControl != null)
                 {
-                    _webCameraControl.StopCapture();
-                }
-                else
-                {
-                    _webCameraControl.StartCapture(_webCameraControl.GetVideoCaptureDevices().ElementAt(1));
-                }
-            });
-        }*/
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        if (_webCameraControl.IsCapturing)
+                        {
+                            _webCameraControl.StopCapture();
+                        }
+                        else
+                        {
+                            _webCameraControl.StartCapture(_webCameraControl.GetVideoCaptureDevices().ElementAt(1));
+                        }
+                    });
+                }*/
     }
 
 
@@ -395,12 +300,22 @@ public class MeetingViewModel : ViewModelBase
     private void _listener_OnUserCreated(UserModel obj)
     {
 
-        Dispatcher.CurrentDispatcher.Invoke(() =>
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            AddNewUser(obj);
+        });
+
+
+
+
+/*        Dispatcher.CurrentDispatcher.Invoke(() =>
         {
             //CurrentUser = obj.AsViewModel();
-            CurrentUser.UID = obj.UID;
-            CurrentUser.Username = obj.Username;
-        });
+            *//*            CurrentUser.UID = obj.UID;
+                        CurrentUser.Username = obj.Username;*//*
+
+            //AddNewUser(obj);
+        });*/
 
 /*        Task.Run(async () => await Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -451,20 +366,25 @@ public class MeetingViewModel : ViewModelBase
         message.To = to.Username;
         ParticipantsMessages.Add(message);
     }
-    private void AddNewUser(int uid, string username)
-    {
-        var existingUser = Participants.FirstOrDefault(x => x.UID == uid);
 
-        if(existingUser != null)
+    private void AddNewUser(UserModel model)
+    {
+        var existingUser = Participants.FirstOrDefault(x => x.UID == model.UID);
+
+        if (existingUser != null)
         {
-            existingUser.UID = uid;
-            existingUser.Username = username;
+            existingUser.UID = model.UID;
+            existingUser.Username = model.Username;
         }
         else
         {
-            var userViewModel = new UserViewModel(username, uid);
+            var userViewModel = model.AsViewModel();    
             AddUserToCollections(userViewModel);
         }
+    }
+    private void AddNewUser(int uid, string username)
+    {
+        AddNewUser(new UserModel(uid, username));
     }
     private void UpdateUserCameraFrame(int uid, BitmapImage bitmap)
     {

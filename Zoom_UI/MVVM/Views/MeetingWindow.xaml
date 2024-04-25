@@ -179,7 +179,7 @@
 
                             <TextBox Grid.RowSpan="2" Margin="5"
                                          TextWrapping="Wrap"
-                                         Text="{Binding Message}" FontSize="26" 
+                                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" FontSize="26" 
                                          Background="{DynamicResource SecondaryBrush}"/>
 
 

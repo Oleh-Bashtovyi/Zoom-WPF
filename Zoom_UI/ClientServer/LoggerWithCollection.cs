@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
-using System.Windows.Threading;
-
 namespace Zoom_Server.Logging;
 
 public class LoggerWithCollection : ILogger
@@ -29,10 +22,6 @@ public class LoggerWithCollection : ILogger
         {
             _collection.Add(message);
         });
-/*        Dispatcher.CurrentDispatcher.Invoke(() =>
-        {
-            _collection.Add(message);
-        });*/
     }
     public void LogError(string message) =>Log(message);
     public void LogSuccess(string message) => Log(message);

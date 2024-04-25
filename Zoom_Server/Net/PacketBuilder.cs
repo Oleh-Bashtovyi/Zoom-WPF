@@ -1,59 +1,82 @@
-﻿using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using Zoom_Server.Net;
+using System.Threading.Tasks;
+using Zoom_Server.Extensions;
 
-namespace ChatServer.Net.IO;
+namespace Zoom_Server.Net;
 
-public class PacketBuilder
+public class PacketBuilder : BinaryWriter
 {
-    private MemoryStream _ms;
+    private MemoryStream _stream;
 
-    public PacketBuilder()
+    public PacketBuilder() : base(new MemoryStream())
     {
-        _ms = new MemoryStream();
+        _stream = (MemoryStream)BaseStream;
     }
 
-    public void WriteOpCode(byte opcode)
+    public void Write(OpCode opCode)
     {
-        _ms.WriteByte(opcode);
+        _stream.WriteByte(opCode.AsByte());
     }
 
-    public void WriteOpCode(OpCode opcode)
+    public void Write_UserFrame(int fromUser_Id, int position, byte[] data)
     {
-        _ms.WriteByte((byte)opcode);
+        Write(fromUser_Id);
+        Write(position);
+        Write(data.Length);
+        Write(data);
     }
 
-
-    public void WriteMessage(string msg)
+    public void Write_UserInfo(int userId, string username)
     {
-        var msgLength = msg.Length;
-        _ms.Write(BitConverter.GetBytes(msgLength));
-        _ms.Write(Encoding.UTF8.GetBytes(msg));
+        Write(userId);
+        Write(username);
     }
 
-    public void WriteArray(byte[] data)
+    public void Clear()
     {
-        var arrLength = data.Length;
-        _ms.Write(BitConverter.GetBytes(arrLength));
-        _ms.Write(data);
-    }
-
-    public void WriteBitmap(Bitmap bitmap)
-    {
-        var curPos = _ms.Position;
-        bitmap.Save(_ms, ImageFormat.Jpeg);
-        var newPos = _ms.Position;
-        var imgLength = newPos - curPos;
-        _ms.Seek(newPos, SeekOrigin.Begin);
-        _ms.Write(BitConverter.GetBytes(imgLength));
-        _ms.Seek(0, SeekOrigin.End);
+        _stream.Clear();
     }
 
 
-    public byte[] GetPacketBytes()
+    public byte[] ToArray()
     {
-        return _ms.ToArray();
+        return _stream.ToArray();
+    }
+}
+
+
+
+
+
+
+
+public class PacketReader : BinaryReader
+{
+    private MemoryStream _stream;
+
+    public PacketReader(MemoryStream stream) : base(stream)
+    {
+        _stream = stream;
+    }
+
+
+    public OpCode ReadOpCode()
+    {
+        return (OpCode)ReadByte();
+    }
+
+
+
+    public record UserFrame(int UserId, int Position, byte[] Data);
+    public UserFrame ReadUserFrame()
+    {
+        var userId = ReadInt32();
+        var position = ReadInt32();
+        var clusterSize = ReadInt32();
+        var cluster = ReadBytes(clusterSize);
+        return new UserFrame(userId, position, cluster);
     }
 }

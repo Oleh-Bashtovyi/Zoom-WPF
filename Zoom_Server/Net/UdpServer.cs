@@ -62,12 +62,13 @@ internal class UdpServer : OneProcessServer
 
     private async Task HandleRequest(UdpReceiveResult asyncResult, CancellationToken token)
     {
-        using var ms = new MemoryStream(asyncResult.Buffer);
-        using var br = new BinaryReader(ms);
+        /*        using var ms = new MemoryStream(asyncResult.Buffer);
+                using var br = new BinaryReader(ms);*/
+        using var pr = new PacketReader(new MemoryStream(asyncResult.Buffer));
 
         try
         {
-            var opCode = (OpCode)br.ReadByte();
+            var opCode = pr.ReadOpCode();
 
             if(opCode == OpCode.CreateUser)
             {
@@ -81,7 +82,7 @@ internal class UdpServer : OneProcessServer
                 //--uid
                 //--username
                 //============================================================
-                var userName = br.ReadString();
+                var userName = pr.ReadString();
                 var client = new Client(asyncResult.RemoteEndPoint, userName);
                 Clients.Add(client);
 
@@ -111,7 +112,8 @@ internal class UdpServer : OneProcessServer
                 using var bw = new BinaryWriter(repsponse_ms);
 
                 bw.Write(OpCode.CreateMeeting.AsByte());   //opcode
-                bw.Write(newMeeting.ToString());           //meeting id
+                bw.Write(newMeeting);                      //meeting id
+                log.LogWarning($"Sending new meeting info: id:{newMeeting}");
                 await udpServer.SendAsync(repsponse_ms.ToArray(), asyncResult.RemoteEndPoint, token);
             }
             else if(opCode == OpCode.Participant_JoinMeetingUsingCode)
@@ -127,15 +129,13 @@ internal class UdpServer : OneProcessServer
                 //--FAIL:
                 //-----nothing;
                 //============================================================
-                var meetingCode = br.ReadInt32();
+                var meetingCode = pr.ReadInt32();
 
                 if(MeetingsIds.Contains(meetingCode))
                 {
-                    using var repsponse_ms = new MemoryStream();
-                    using var bw = new BinaryWriter(repsponse_ms);
-
-                    bw.Write(OpCode.Participant_JoinMeetingUsingCode.AsByte());
-                    await udpServer.SendAsync(repsponse_ms.ToArray(), asyncResult.RemoteEndPoint, token);
+                    using var pw = new PacketBuilder();
+                    pw.Write(OpCode.Participant_JoinMeetingUsingCode);
+                    await udpServer.SendAsync(pw.ToArray(), asyncResult.RemoteEndPoint, token);
                 }
             }
             else if(opCode == OpCode.Participant_CameraFrame_Create)
@@ -147,18 +147,18 @@ internal class UdpServer : OneProcessServer
                 //--user_id;  (image of whom)
                 //--number_of_clusters;
                 //output:
-                //--op_code;
+                //--op_code or none;
                 //============================================================
 
-                var userId = br.ReadInt32();
-                var numberOfCusters = br.ReadInt32();
+                var userId = pr.ReadInt32();
+                var numberOfCusters = pr.ReadInt32();
 
                 if(Clients.Any(x => x.Id == userId))
                 {
                     User_CameraFrame[userId] = new FrameBuilder(numberOfCusters);
                     log.LogSuccess($"Frame builder for user: {userId} created with clusters size: {numberOfCusters}");
-                    var response = new byte[] { OpCode.Participant_CameraFrame_Create.AsByte() };
-                    await udpServer.SendAsync(response, asyncResult.RemoteEndPoint, token);
+                    //var response = new byte[] { OpCode.Participant_CameraFrame_Create.AsByte() };
+                    //await udpServer.SendAsync(response, asyncResult.RemoteEndPoint, token);
                 }
             }
             else if(opCode == OpCode.Participant_CameraFrame_Update)
@@ -185,24 +185,32 @@ internal class UdpServer : OneProcessServer
                 //---------------cluster;
                 //============================================================
 
-                var userId = br.ReadInt32();
-                var position = br.ReadInt32();
-                var clusterSize = br.ReadInt32();
-                var cluster = br.ReadBytes(clusterSize);
-                var frames = User_CameraFrame.GetValueOrDefault(userId);
+                var frameData = pr.ReadUserFrame();
+/*                var userId = pr.ReadInt32();
+                var position = pr.ReadInt32();
+                var clusterSize = pr.ReadInt32();
+                var cluster = pr.ReadBytes(clusterSize);
+                var frames = User_CameraFrame.GetValueOrDefault(userId);*/
+                var frames = User_CameraFrame.GetValueOrDefault(frameData.UserId);
 
                 if(frames != null)
                 {
-                    frames.AddFrame(position, cluster);
+                    //frames.AddFrame(position, cluster);
+                    frames.AddFrame(frameData.Position, frameData.Data);
 
                     if(frames.IsFull)
                     {
-                        var userMeeting = Clients.FirstOrDefault(x => x.Id == userId)?.MeetingId ?? -1;
+                        log.LogSuccess("All frame received!");
 
-                        if(MeetingsIds.Contains(userMeeting))
-                        {
-                            await BroadCastCameraFrameToParticipants(userId, userMeeting, frames, token);
-                        }
+                        await BroadCastCameraFrameToParticipants(frameData.UserId, Clients, frames, token);
+                        //var userMeeting = Clients.FirstOrDefault(x => x.Id == userId)?.MeetingId ?? -1;
+                        /*                        var userMeeting = Clients.FirstOrDefault(x => x.Id == frameData.UserId)?.MeetingId ?? -1;
+
+                                                if(MeetingsIds.Contains(userMeeting))
+                                                {
+                                                    //await BroadCastCameraFrameToParticipants(userId, userMeeting, frames, token);
+                                                    await BroadCastCameraFrameToParticipants(frameData.UserId, userMeeting, frames, token);
+                                                }*/
                     }
                 }
             }
@@ -218,27 +226,29 @@ internal class UdpServer : OneProcessServer
 
 
 
-    private async Task BroadCastCameraFrameToParticipants(int userId, int meetingId, FrameBuilder builder, CancellationToken token)
+    private async Task BroadCastCameraFrameToParticipants(int userId, IEnumerable<Client> participants, FrameBuilder builder, CancellationToken token)
     {
-        var participants = Clients.Where(x => x.MeetingId == meetingId);
-        
-        if(!participants.Any())
-        {
-            return;
-        }
-
         var frames = builder.GetFrames();
+        using var pb = new PacketBuilder();
 
+        log.LogWarning("Process of sending frame begun!");
         foreach (var participant in participants)
         {
-            using var repsponse_ms = new MemoryStream();
-            using var bw = new BinaryWriter(repsponse_ms);
-            bw.Write(OpCode.Participant_CameraFrame_Create.AsByte());
-            bw.Write(userId);
-            bw.Write(frames.Count());
-            await udpServer.SendAsync(repsponse_ms.ToArray(), participant.IPAddress, token);
+            pb.Clear();
+            pb.Write(OpCode.Participant_CameraFrame_Create.AsByte());
+            pb.Write(userId);
+            pb.Write(frames.Count());
+            await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
 
+            for (int i = 0; i < frames.Length; i++)
+            {
+                pb.Clear();
+                pb.Write(OpCode.Participant_CameraFrame_Update.AsByte());
+                pb.Write_UserFrame(userId, i, frames[i]);
+                await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+            }
 
+            log.LogSuccess($"Frame was sent to user: id:{participant.Id} name:{participant.Username}");
         }
     }
 }

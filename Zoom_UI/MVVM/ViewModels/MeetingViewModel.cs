@@ -17,6 +17,8 @@ using Zoom_UI.ClientServer;
 using Zoom_Server.Logging;
 using static Zoom_Server.Net.PacketReader;
 using System.Windows.Media.Media3D;
+using AForge.Video.DirectShow;
+using AForge.Video;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -94,11 +96,12 @@ public class MeetingViewModel : ViewModelBase
 
         #region Listener_initialization
         _listener = new(_serverIP, _serverPort, new LoggerWithCollection(ErrorsList));
-        _listener.OnUserCreated +=         _listener_OnUserCreated;
-        _listener.OnMeetingCreated +=      _listener_OnMeetingCreated;
-        _listener.OnUserJoinedMeeting +=   _listener_OnUserJoinedMeeting;
-        _listener.onUserLeftMeeting +=     _listener_onUserLeftMeeting;
-        _listener.OnCameraFrameUpdated +=  _listener_OnCameraFrameUpdated;
+        _listener.OnUserCreated +=                 _listener_OnUserCreated;
+        _listener.OnMeetingCreated +=              _listener_OnMeetingCreated;
+        _listener.OnUserJoinedMeeting +=           _listener_OnUserJoinedMeeting;
+        _listener.onUserLeftMeeting +=             _listener_onUserLeftMeeting;
+        _listener.OnCameraFrameUpdated +=          _listener_OnCameraFrameUpdated;
+        _listener.OnUserJoinedMeeting_UsingCode += _listener_OnUserJoinedMeeting_UsingCode; 
         #endregion
 
         #region Initial_data
@@ -111,7 +114,7 @@ public class MeetingViewModel : ViewModelBase
         #endregion
 
         AddUserToCollections(CurrentUser);
-
+        Message = "USER_1";
 
         _webCameraControl = webCameraControl;
         ChangeThemeCommand = new RelayCommand(() =>
@@ -126,8 +129,88 @@ public class MeetingViewModel : ViewModelBase
                 ErrorsList.Add(ex.Message);
             }
         });
-        //Task.Run(CaptureProcess);
 
+        Task.Run(CaptureProcess);
+        //StartCamera();
+    }
+
+
+
+/*    private async Task CaptureProcess()
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(20);
+                Bitmap? frame = null;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    frame = _webCameraControl?.GetCurrentImage();
+
+                    if (frame != null)
+                    {
+                        //await _listener.Send_CameraFrame(CurrentUser.UID, frame);
+
+                        CurrentUser.CameraImage = frame.AsBitmapImage();
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                ErrorsList.Add(ex.Message);
+            });
+        }
+    }
+*/
+
+
+
+
+
+
+    private void SwitchMicrophoneState()
+    {
+        ErrorsList.Add("Trying to create user..");
+        Task.Run(async () => await _listener.Send_CrateUser(Message));
+        ErrorsList.Add("Creation request send!");
+    }
+
+
+    private void SwitchCameraState()
+    {
+        Task.Run(_listener.Send_CreateMeeting);
+        /*        var frame = new Bitmap( "E:\\downloads\\ggg.png");
+                Task.Run(async () => await _listener.Send_CameraFrame(Participants[1].UID, frame));*/
+    }
+
+
+    private void LeaveMeeting()
+    {
+        try
+        {
+            int code = int.Parse(Message);
+            Task.Run(async() => await _listener.Send_JoinUsingMeetingUsingCode(code));
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+
+
+    private void SendMessage()
+    {
+/*        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var _webCameraId = _webCameraControl?.GetVideoCaptureDevices().ElementAt(1);
+            _webCameraControl?.StartCapture(_webCameraId);
+        });
+
+        Task.Run(CaptureProcess);*/
     }
 
 
@@ -136,7 +219,9 @@ public class MeetingViewModel : ViewModelBase
 
 
 
-    
+
+
+
 
 
 
@@ -149,125 +234,115 @@ public class MeetingViewModel : ViewModelBase
     {
         try
         {
-/*            while (true)
+            while (true)
             {
-                if (_webCameraControl?.IsCapturing ?? false)
+                await Task.Delay(20);
+                Bitmap? frame = null;
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    await Task.Delay(50);
-                    // Invoke UI update code on the UI thread
-                    *//*                await Application.Current.Dispatcher.InvokeAsync(() =>
-                                    {
-                                        var frame = _webCameraControl?.GetCurrentImage();
-                                        CurrentUser.CameraImage = frame?.ToBitmapImage();
-                                    });*//*
-                    Application.Current.Dispatcher.Invoke(() =>
+                    frame = _webCameraControl?.GetCurrentImage();
+
+                    if (frame != null)
                     {
-                        var frame = _webCameraControl?.GetCurrentImage();
-                        CurrentUser.CameraImage = frame?.ToBitmapImage();
-                        Participants[1].CameraImage = frame?.ToBitmapImage();
-                    });
-                }
-                else
-                {
-                    CurrentUser.CameraImage = null;
-                }
-            }*/
-    }
+                        /*                    await _listener.Send_CameraFrame(CurrentUser.UID, frame);   */
+
+                        CurrentUser.CameraImage = frame.AsBitmapImage();
+                    }
+                });
+            }
+        }
         catch (Exception ex)
         {
-            var mes = ex.Message;
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                ErrorsList.Add(ex.Message);
+            });
         }
-
-        /*        try
-                {
-
-                    while (true)
-                    {
-                        await Task.Delay(400);
-                        Dispatcher.CurrentDispatcher.Invoke(() =>
-                        {
-                            var frame = _webCameraControl?.GetCurrentImage();
-                            CurrentUser.CameraImage = frame?.ToBitmapImage();
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    var mes = ex.Message;
-                }*/
-
-
-
-
-        // Create video capture device
-        /*        FilterInfoCollection captureDevices = new FilterInfoCollection(FilterCategory.VideoInputDevice);
-                VideoCaptureDevice videoDevice = new VideoCaptureDevice(captureDevices[0].MonikerString);
-
-                // Attach NewFrame event handler which will be triggered for each new frame
-                videoDevice.NewFrame += new NewFrameEventHandler(videoDevice_NewFrame);
-
-                // Start capturing
-                videoDevice.Start();
-
-                void videoDevice_NewFrame(object sender, NewFrameEventArgs eventArgs)
-                {
-                    // Process frame here
-                    Bitmap bitmap = eventArgs.Frame.Clone() as Bitmap;
-
-                    // To display in a PictureBox named pictureBox
-                    pictureBox.Image = bitmap;
-                }*/
     }
 
 
 
 
-
-    private void SendMessage()
+/*    private void StartCamera()
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        var VideoDevices = new FilterInfoCollection(FilterCategory.VideoInputDevice);
+        var device = VideoDevices[0];
+        _videoSource = new VideoCaptureDevice(device.MonikerString);
+        _videoSource.NewFrame += video_NewFrame;
+        _videoSource.Start();
+
+    }*/
+
+
+    private VideoCaptureDevice _videoSource;
+
+
+
+
+
+
+
+    private void video_NewFrame(object sender, AForge.Video.NewFrameEventArgs eventArgs)
+    {
+        try
         {
-            CurrentUser.Username = "AAAAAAA";
-        });
-    }
+            BitmapImage bi;
+            using (var bitmap = (Bitmap)eventArgs.Frame.Clone())
+            {
+                bi = bitmap.AsBitmapImage();
+            }
+            bi.Freeze(); // avoid cross thread operations and prevents leaks
+            Application.Current.Dispatcher.Invoke(() => { CurrentUser.CameraImage = bi; });
 
-    private void SwitchMicrophoneState()
-    {
-        //Task.Run(_listener.Send_CrateUser);
-
-        Task.Run(async () => await _listener.Send_CrateUser("USER 1!"));
-        Task.Run(async () => await _listener.Send_CrateUser("USER 2!"));
-        Task.Run(_listener.Send_CreateMeeting);
-    }
-
-    private void LeaveMeeting()
-    {
-        Application.Current.Dispatcher.Invoke(() =>
+        }
+        catch (Exception exc)
         {
-
-        });
+            MessageBox.Show("Error on _videoSource_NewFrame:\n" + exc.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            _videoSource.SignalToStop();
+            _videoSource.NewFrame -= new NewFrameEventHandler(video_NewFrame);
+            //StopCamera();
+        }
     }
 
-    private void SwitchCameraState()
-    {
-        var frame = new Bitmap( "E:\\downloads\\ggg.png");
-        Task.Run(async () => await _listener.Send_CameraFrame(Participants[1].UID, frame));
 
-        /*        if (_webCameraControl != null)
-                {
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        if (_webCameraControl.IsCapturing)
-                        {
-                            _webCameraControl.StopCapture();
-                        }
-                        else
-                        {
-                            _webCameraControl.StartCapture(_webCameraControl.GetVideoCaptureDevices().ElementAt(1));
-                        }
-                    });
-                }*/
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -276,19 +351,33 @@ public class MeetingViewModel : ViewModelBase
 
 
     #region Listener_events
-    private void _listener_OnCameraFrameUpdated(CameraFrame obj)
+    private void _listener_OnUserCreated(UserModel obj)
     {
+
         Application.Current.Dispatcher.Invoke(() =>
         {
-            UpdateUserCameraFrame(obj.UserId, obj.Frame);
+            CurrentUser.UID = obj.UID;
+            CurrentUser.Username = obj.Username;
+            ErrorsList.Add($"Current user id: {CurrentUser.UID}");
         });
     }
-    private void _listener_onUserLeftMeeting(UserModel obj)
+    private void _listener_OnMeetingCreated(MeetingInfo obj)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            RemoveUserFromCollections(obj.AsViewModel());
+            MeetingId = obj.Id;
         });
+    }
+    private void _listener_OnUserJoinedMeeting_UsingCode(MeetingInfo obj)
+    {
+        Application.Current.Dispatcher?.Invoke(() =>
+        {
+            ErrorsList.Add($"Current user id: {CurrentUser.UID}");
+
+        });
+
+        Task.Run(async () => await _listener.Send_JoinedMeeting(CurrentUser.UID, obj.Id));
+
     }
     private void _listener_OnUserJoinedMeeting(UserModel obj)
     {
@@ -297,41 +386,20 @@ public class MeetingViewModel : ViewModelBase
             AddNewUser(obj.UID, obj.Username);
         });
     }
-    private void _listener_OnUserCreated(UserModel obj)
+    private void _listener_OnCameraFrameUpdated(CameraFrame obj)
     {
-
         Application.Current.Dispatcher.Invoke(() =>
         {
-            AddNewUser(obj);
+            UpdateUserCameraFrame(obj.UserId, obj.Frame);
         });
-
-
-
-
-/*        Dispatcher.CurrentDispatcher.Invoke(() =>
-        {
-            //CurrentUser = obj.AsViewModel();
-            *//*            CurrentUser.UID = obj.UID;
-                        CurrentUser.Username = obj.Username;*//*
-
-            //AddNewUser(obj);
-        });*/
-
-/*        Task.Run(async () => await Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            CurrentUser = obj.AsViewModel();
-        }));*/
-
-
-        /*        Application.Current.Dispatcher.Invoke(() =>
-                {
-                });*/
     }
-    private void _listener_OnMeetingCreated(MeetingInfo obj)
+
+
+    private void _listener_onUserLeftMeeting(UserModel obj)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            MeetingId = obj.Id;
+            RemoveUserFromCollections(obj.AsViewModel());
         });
     }
     #endregion

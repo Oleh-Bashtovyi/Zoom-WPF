@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Zoom_Server.Extensions;
-
+﻿using Zoom_Server.Extensions;
 namespace Zoom_Server.Net;
 
 public class PacketBuilder : BinaryWriter
@@ -50,9 +44,6 @@ public class PacketBuilder : BinaryWriter
 
 
 
-
-
-
 public class PacketReader : BinaryReader
 {
     private MemoryStream _stream;
@@ -69,6 +60,13 @@ public class PacketReader : BinaryReader
     }
 
 
+    public record UserInfo(int Id, string Username);
+    public UserInfo ReadUserInfo()
+    {
+        var userId = ReadInt32();
+        var username = ReadString();
+        return new UserInfo(userId, username);  
+    } 
 
     public record UserFrame(int UserId, int Position, byte[] Data);
     public UserFrame ReadUserFrame()

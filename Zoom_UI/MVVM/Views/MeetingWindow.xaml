@@ -64,7 +64,7 @@
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource MainFontBrush}"
                                                Text="{Binding ShortName}"/>
-                                    <Image Source="{Binding CameraImage}"/>
+                                    <Image Margin="0 5 0 0" Source="{Binding CameraImage}"/>
                                     
                                     
                                     <TextBlock Grid.Row="1"

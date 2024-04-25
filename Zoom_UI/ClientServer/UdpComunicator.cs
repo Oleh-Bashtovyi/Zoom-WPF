@@ -14,6 +14,7 @@ using Zoom_Server.Logging;
 using Zoom_Server.Net;
 using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Models;
+using static Zoom_Server.Net.PacketReader;
 
 namespace Zoom_UI.ClientServer;
 
@@ -23,10 +24,15 @@ internal class UdpComunicator : OneProcessServer
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
 
-    public event Action<UserModel>? OnUserJoinedMeeting;
-    public event Action<UserModel>? onUserLeftMeeting;
     public event Action<UserModel>? OnUserCreated;
     public event Action<MeetingInfo>? OnMeetingCreated;
+
+
+    public event Action<MeetingInfo>? OnUserJoinedMeeting_UsingCode;
+    public event Action<UserModel>? OnUserJoinedMeeting;
+    public event Action<UserModel>? onUserLeftMeeting;
+
+
     public event Action<CameraFrame>? OnCameraFrameUpdated;
     public event Action<MessageInfo>? OnMessageSent;
 
@@ -43,17 +49,22 @@ internal class UdpComunicator : OneProcessServer
 
     public async Task Send_CrateUser(string username)
     {
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        bw.Write(OpCode.CreateUser.AsByte());
-        bw.Write(username);
-        await _comunicator.SendAsync(ms.ToArray(), (int)ms.Length, _serverEndPoint);
+        log.LogSuccess($"Sending request for user creation! Username: {username}");
+        using var pb = new PacketBuilder();
+        log.Log("1");
+        pb.Write(OpCode.CreateUser);
+        log.Log("2");
+        pb.Write(username);
+        log.Log("3");
+        log.LogSuccess($"Sending request for user creation! Username: {username}");
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
+
 
     public async Task Send_CreateMeeting()
     {
         var data = new byte[] { OpCode.CreateMeeting.AsByte()};
-        await _comunicator.SendAsync(data, data.Length, _serverEndPoint);
+        await _comunicator.SendAsync(data, _serverEndPoint);
     }
 
     public async Task Send_CameraFrame(int fromUser_id, Bitmap bitmap)
@@ -76,13 +87,33 @@ internal class UdpComunicator : OneProcessServer
             pw.Write(OpCode.Participant_CameraFrame_Update);
             pw.Write_UserFrame(fromUser_id, i, cluster);
             data = pw.ToArray();
-            await _comunicator.SendAsync(data, data.Length, _serverEndPoint);
+            await _comunicator.SendAsync(data, _serverEndPoint);
             await Task.Delay(10);
         }
     }
 
 
-    
+    public async Task Send_JoinUsingMeetingUsingCode(int meetingCode)
+    {
+        var pb = new PacketBuilder();
+        pb.Write(OpCode.Participant_JoinMeetingUsingCode);
+        pb.Write(meetingCode);
+        log.LogSuccess($"Sending request for meeting joining. Meetingcode: {meetingCode}");
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+    }
+
+
+    public async Task Send_JoinedMeeting(int userId, int meetingCode)
+    {
+        var pb = new PacketBuilder();
+        pb.Write(OpCode.Participant_JoinedMeeting);
+        pb.Write(userId);
+        pb.Write(meetingCode);
+        log.LogSuccess($"Sending request that we have joined meeting. Meetingcode: {meetingCode}");
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+    }
+
+
 
 
 
@@ -101,7 +132,7 @@ internal class UdpComunicator : OneProcessServer
                     var pr = new PacketReader(new MemoryStream(packet.Buffer));
                     var opCode = pr.ReadOpCode();
 
-                    //log.LogWarning($"Received op code: {opCode}");
+                    log.LogWarning($"Received op code: {opCode}");
 
                     if (opCode == OpCode.CreateMeeting)
                     {
@@ -112,8 +143,19 @@ internal class UdpComunicator : OneProcessServer
                     {
                         var id = pr.ReadInt32();
                         var username = pr.ReadString();
-                        log.LogWarning($"Received new user!");
+                        log.LogWarning($"Received new user! Id: {id} username: {username}");
                         OnUserCreated?.Invoke(new(id, username));
+                    }
+                    else if(opCode == OpCode.Participant_JoinMeetingUsingCode)
+                    {
+                        var meetingId = pr.ReadInt32();
+                        OnUserJoinedMeeting_UsingCode?.Invoke(new(meetingId));
+                    }
+                    else if(opCode == OpCode.Participant_JoinedMeeting)
+                    {
+                        var userId = pr.ReadInt32();
+                        var userName = pr.ReadString();
+                        OnUserJoinedMeeting?.Invoke(new(userId, userName));
                     }
                     else if(opCode == OpCode.Participant_CameraFrame_Create)
                     {

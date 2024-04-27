@@ -17,8 +17,6 @@ using Zoom_UI.ClientServer;
 using Zoom_Server.Logging;
 using static Zoom_Server.Net.PacketReader;
 using System.Windows.Media.Media3D;
-using AForge.Video.DirectShow;
-using AForge.Video;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -32,8 +30,7 @@ public class MeetingViewModel : ViewModelBase
     private string _message;
     private string _theme;
     private int _meetingId;
-    private int _serverPort = 9999;
-    private string _serverIP = "127.0.0.1";
+
 
     #region PROPERTIES
     public string Message
@@ -95,13 +92,33 @@ public class MeetingViewModel : ViewModelBase
         #endregion
 
         #region Listener_initialization
-        _listener = new(_serverIP, _serverPort, new LoggerWithCollection(ErrorsList));
-        _listener.OnUserCreated +=                 _listener_OnUserCreated;
+/*        _listener.OnUserCreated +=                 _listener_OnUserCreated;
         _listener.OnMeetingCreated +=              _listener_OnMeetingCreated;
-        _listener.OnUserJoinedMeeting +=           _listener_OnUserJoinedMeeting;
-        _listener.onUserLeftMeeting +=             _listener_onUserLeftMeeting;
-        _listener.OnCameraFrameUpdated +=          _listener_OnCameraFrameUpdated;
         _listener.OnUserJoinedMeeting_UsingCode += _listener_OnUserJoinedMeeting_UsingCode; 
+
+
+
+        _listener.OnUserJoinedMeeting += (user) =>
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                AddNewUser(user);
+            });
+        };
+        _listener.onUserLeftMeeting += (user) =>
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                RemoveUserFromCollections(user.AsViewModel());
+            });
+        };
+        _listener.OnCameraFrameUpdated += (frame) =>
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                UpdateUserCameraFrame(frame.UserId, frame.Image);
+            });
+        };*/
         #endregion
 
         #region Initial_data
@@ -263,90 +280,6 @@ public class MeetingViewModel : ViewModelBase
 
 
 
-/*    private void StartCamera()
-    {
-        var VideoDevices = new FilterInfoCollection(FilterCategory.VideoInputDevice);
-        var device = VideoDevices[0];
-        _videoSource = new VideoCaptureDevice(device.MonikerString);
-        _videoSource.NewFrame += video_NewFrame;
-        _videoSource.Start();
-
-    }*/
-
-
-    private VideoCaptureDevice _videoSource;
-
-
-
-
-
-
-
-    private void video_NewFrame(object sender, AForge.Video.NewFrameEventArgs eventArgs)
-    {
-        try
-        {
-            BitmapImage bi;
-            using (var bitmap = (Bitmap)eventArgs.Frame.Clone())
-            {
-                bi = bitmap.AsBitmapImage();
-            }
-            bi.Freeze(); // avoid cross thread operations and prevents leaks
-            Application.Current.Dispatcher.Invoke(() => { CurrentUser.CameraImage = bi; });
-
-        }
-        catch (Exception exc)
-        {
-            MessageBox.Show("Error on _videoSource_NewFrame:\n" + exc.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            _videoSource.SignalToStop();
-            _videoSource.NewFrame -= new NewFrameEventHandler(video_NewFrame);
-            //StopCamera();
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -356,9 +289,9 @@ public class MeetingViewModel : ViewModelBase
 
         Application.Current.Dispatcher.Invoke(() =>
         {
-            CurrentUser.UID = obj.UID;
+            CurrentUser.Id = obj.Id;
             CurrentUser.Username = obj.Username;
-            ErrorsList.Add($"Current user id: {CurrentUser.UID}");
+            ErrorsList.Add($"Current user id: {CurrentUser.Id}");
         });
     }
     private void _listener_OnMeetingCreated(MeetingInfo obj)
@@ -372,35 +305,12 @@ public class MeetingViewModel : ViewModelBase
     {
         Application.Current.Dispatcher?.Invoke(() =>
         {
-            ErrorsList.Add($"Current user id: {CurrentUser.UID}");
+            ErrorsList.Add($"Current user id: {CurrentUser.Id}");
 
         });
 
-        Task.Run(async () => await _listener.Send_JoinedMeeting(CurrentUser.UID, obj.Id));
+        Task.Run(async () => await _listener.Send_JoinedMeeting(CurrentUser.Id, obj.Id));
 
-    }
-    private void _listener_OnUserJoinedMeeting(UserModel obj)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            AddNewUser(obj.UID, obj.Username);
-        });
-    }
-    private void _listener_OnCameraFrameUpdated(CameraFrame obj)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            UpdateUserCameraFrame(obj.UserId, obj.Frame);
-        });
-    }
-
-
-    private void _listener_onUserLeftMeeting(UserModel obj)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            RemoveUserFromCollections(obj.AsViewModel());
-        });
     }
     #endregion
 
@@ -437,11 +347,11 @@ public class MeetingViewModel : ViewModelBase
 
     private void AddNewUser(UserModel model)
     {
-        var existingUser = Participants.FirstOrDefault(x => x.UID == model.UID);
+        var existingUser = Participants.FirstOrDefault(x => x.Id == model.Id);
 
         if (existingUser != null)
         {
-            existingUser.UID = model.UID;
+            existingUser.Id = model.Id;
             existingUser.Username = model.Username;
         }
         else
@@ -456,7 +366,7 @@ public class MeetingViewModel : ViewModelBase
     }
     private void UpdateUserCameraFrame(int uid, BitmapImage bitmap)
     {
-        var user = Participants.FirstOrDefault(x => x.UID == uid);
+        var user = Participants.FirstOrDefault(x => x.Id == uid);
 
         if(user != null)
         {
@@ -465,7 +375,7 @@ public class MeetingViewModel : ViewModelBase
     }
     private void AddUserToCollections(UserViewModel user)
     {
-        if (user.UID <= 0)
+        if (user.Id <= 0)
         {
             return;
         }
@@ -475,7 +385,7 @@ public class MeetingViewModel : ViewModelBase
     }
     private void RemoveUserFromCollections(UserViewModel user)
     {
-        if(user.UID <= 0)
+        if(user.Id <= 0)
         {
             return;
         }

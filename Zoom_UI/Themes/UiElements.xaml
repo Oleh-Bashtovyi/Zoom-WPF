@@ -30,6 +30,9 @@
 
     <Style TargetType="TextBox" x:Key="DefaultTextBox">
         <Setter Property="Foreground" Value="{DynamicResource MainFontBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource MainBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource MainFontBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="FontSize" Value="28"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>

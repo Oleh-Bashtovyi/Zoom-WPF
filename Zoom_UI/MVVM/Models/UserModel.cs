@@ -1,40 +1,52 @@
 ﻿using Zoom_UI.MVVM.ViewModels;
-
 namespace Zoom_UI.MVVM.Models;
-
 #pragma warning disable CS8618
 
-public class UserModel
+
+public interface IUser 
 {
-    public int UID { get; set; }
-    public string Username { get; set; }
+    public int Id { get; }
+    public string Username { get; }
+}
 
 
+public class UserModel : IUser
+{
+    public int Id;
+    public string Username;
 
-    public UserModel() { }
-    public UserModel(int UID, string Username)
+    int IUser.Id => this.Id;
+    string IUser.Username => this.Username;
+
+
+    public UserModel() 
     {
-        this.UID = UID;
-        this.Username = Username;
+        Id = -1;
+        Username = string.Empty;
+    }
+    public UserModel(int id, string username)
+    {
+        Id = id;
+        Username = username;
     }
 
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is UserViewModel vm)
-        {
-            return UID == vm.UID;
-        }
-        else if (obj is UserModel model)
-        {
-            return UID == model.UID;
-        }
-        return false;
-    }
 
     public UserViewModel AsViewModel()
     {
-        return new UserViewModel(Username, UID);
+        return new UserViewModel(Username, Id);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is IUser vm)
+        {
+            return Id == vm.Id;
+        }
+        return false;
+    }
+    public override int GetHashCode()
+    {
+        return Id.GetHashCode();
     }
 }
 

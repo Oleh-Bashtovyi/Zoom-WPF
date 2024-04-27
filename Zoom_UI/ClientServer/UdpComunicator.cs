@@ -18,20 +18,21 @@ using static Zoom_Server.Net.PacketReader;
 
 namespace Zoom_UI.ClientServer;
 
-internal class UdpComunicator : OneProcessServer
+public class UdpComunicator : OneProcessServer
 {
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
 
     public event Action<UserModel>? OnUserCreated;
+    public event Action<UserModel>? OnUserChangedName;
+    public event Action<UserModel>? OnUserReceivedId;
+
     public event Action<MeetingInfo>? OnMeetingCreated;
-
-
     public event Action<MeetingInfo>? OnUserJoinedMeeting_UsingCode;
+
     public event Action<UserModel>? OnUserJoinedMeeting;
     public event Action<UserModel>? onUserLeftMeeting;
-
 
     public event Action<CameraFrame>? OnCameraFrameUpdated;
     public event Action<MessageInfo>? OnMessageSent;
@@ -51,20 +52,24 @@ internal class UdpComunicator : OneProcessServer
     {
         log.LogSuccess($"Sending request for user creation! Username: {username}");
         using var pb = new PacketBuilder();
-        log.Log("1");
         pb.Write(OpCode.CreateUser);
-        log.Log("2");
         pb.Write(username);
-        log.Log("3");
         log.LogSuccess($"Sending request for user creation! Username: {username}");
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+    }
+
+    public async Task Send_ChangeName(int userId, string newUSername)
+    {
+        using var pb = new PacketBuilder();
+        pb.Write(OpCode.ChangeName);
+        pb.Write_UserInfo(userId, newUSername);
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
 
 
     public async Task Send_CreateMeeting()
     {
-        var data = new byte[] { OpCode.CreateMeeting.AsByte()};
-        await _comunicator.SendAsync(data, _serverEndPoint);
+        await _comunicator.SendAsync(OpCode.CreateMeeting.AsArray(), _serverEndPoint);
     }
 
     public async Task Send_CameraFrame(int fromUser_id, Bitmap bitmap)
@@ -77,8 +82,7 @@ internal class UdpComunicator : OneProcessServer
         pw.Write(clusters.Count);
         var data = pw.ToArray();
         await _comunicator.SendAsync(data, data.Length, _serverEndPoint);
-
-        await Task.Delay(50);
+        await Task.Delay(40);
 
         for (int i = 0; i < clusters.Count; i++)
         {
@@ -145,6 +149,11 @@ internal class UdpComunicator : OneProcessServer
                         var username = pr.ReadString();
                         log.LogWarning($"Received new user! Id: {id} username: {username}");
                         OnUserCreated?.Invoke(new(id, username));
+                    }
+                    else if(opCode == OpCode.ChangeName)
+                    {
+                        var userInfo = pr.ReadUserInfo();
+                        OnUserChangedName?.Invoke(new(userInfo.Id, userInfo.Username));
                     }
                     else if(opCode == OpCode.Participant_JoinMeetingUsingCode)
                     {

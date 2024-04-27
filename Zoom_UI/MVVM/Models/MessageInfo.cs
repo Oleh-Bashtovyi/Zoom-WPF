@@ -1,6 +1,6 @@
 ﻿namespace Zoom_UI.MVVM.Models;
 
-internal class MessageInfo
+public class MessageInfo
 {
     public int SenderId {  get; set; }
     public int ReceiverId {  get; set; }

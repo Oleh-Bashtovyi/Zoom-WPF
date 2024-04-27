@@ -221,11 +221,6 @@
             </TabControl>
 
         </Border>
-
-        
-        
-
-
         <Border Grid.Row="1" 
                 Margin="10" 
                 Style="{DynamicResource DefaultBorder}" 
@@ -234,13 +229,15 @@
             <DockPanel Background="Transparent">
 
                 <DockPanel.Resources>
-                    <Style TargetType="Image">
+                    <Style TargetType="{x:Type Image}">
                         <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
                         <Setter Property="Margin" Value="5"/>
                     </Style>
                 </DockPanel.Resources>
 
                 <!--MEETING CODE-->
+
+                <!--BUTTONS-->
                 <!--======================================================-->
                 <StackPanel Orientation="Horizontal" 
                             HorizontalAlignment="Left"
@@ -266,16 +263,15 @@
                     </Button>
                 </StackPanel>
 
-                <!--BUTTONS-->
                 <!--======================================================-->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <!--MICROPHONE-->
                     <Button Command="{Binding SwitchMicrophonStateCommand}">
                         <Button.Resources>
-                            <Style TargetType="Border">
+                            <Style TargetType="{x:Type Border}">
                                 <Setter Property="CornerRadius" Value="5"/>
                             </Style>
-                            <Style TargetType="Button">
+                            <Style TargetType="{x:Type Button}">
                                 <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
                                 <Setter Property="Width" Value="50"/>
                                 <Setter Property="Height" Value="50"/>
@@ -291,10 +287,10 @@
                     <!--CAMERA-->
                     <Button Command="{Binding SwitchCameraStateCommand}">
                         <Button.Resources>
-                            <Style TargetType="Border">
+                            <Style TargetType="{x:Type Border}">
                                 <Setter Property="CornerRadius" Value="5"/>
                             </Style>
-                            <Style TargetType="Button">
+                            <Style TargetType="{x:Type Button}">
                                 <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
                                 <Setter Property="Width" Value="50"/>
                                 <Setter Property="Height" Value="50"/>

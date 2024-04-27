@@ -60,7 +60,13 @@ public class PacketReader : BinaryReader
     }
 
 
+
+
     public record UserInfo(int Id, string Username);
+    /// <summary>
+    /// Read bytes as: Id-(int) and usernam-(string). 
+    /// </summary>
+    /// <returns></returns>
     public UserInfo ReadUserInfo()
     {
         var userId = ReadInt32();
@@ -69,6 +75,10 @@ public class PacketReader : BinaryReader
     } 
 
     public record UserFrame(int UserId, int Position, byte[] Data);
+    /// <summary>
+    /// Read bytes as: User_Id-(int), Cluster_Position-(int), Cluster_Size-(int) and Cluster-(bytes)
+    /// </summary>
+    /// <returns></returns>
     public UserFrame ReadUserFrame()
     {
         var userId = ReadInt32();

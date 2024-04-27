@@ -95,6 +95,19 @@ internal class UdpServer : OneProcessServer
                 log.LogWarning($"Sending new user info: id:{client.Id} username:{client.Username}");
                 await udpServer.SendAsync(pb.ToArray(), asyncResult.RemoteEndPoint, token);
             }
+            else if(opCode == OpCode.ChangeName)
+            {
+                var userInfo = pr.ReadUserInfo();
+                var user = Clients.FirstOrDefault(x => x.Id == userInfo.Id);
+                if(user != null)
+                {
+                    user.Username = userInfo.Username;
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.ChangeName);
+                    pb.Write_UserInfo(userInfo.Id, userInfo.Username);
+                    await udpServer.SendAsync(pb.ToArray(), asyncResult.RemoteEndPoint, token);
+                }
+            }
             else if(opCode == OpCode.CreateMeeting)
             {
                 //============================================================

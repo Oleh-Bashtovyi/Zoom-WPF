@@ -16,7 +16,7 @@ internal class BoolToVisibilityConverter : IValueConverter
         }
         else
         {
-            return Visibility.Hidden;
+            return Visibility.Collapsed;
         }
     }
 

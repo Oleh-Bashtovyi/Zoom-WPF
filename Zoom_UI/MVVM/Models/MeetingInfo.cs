@@ -1,8 +1,8 @@
 ﻿namespace Zoom_UI.MVVM.Models;
 
-internal class MeetingInfo
+public class MeetingInfo
 {
-    internal int Id { get; set; }
+    public int Id { get; set; }
 
     public MeetingInfo(int id)
     {

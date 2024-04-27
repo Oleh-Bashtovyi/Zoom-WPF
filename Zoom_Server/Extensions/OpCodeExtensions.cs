@@ -8,4 +8,9 @@ public static class OpCodeExtensions
     {
         return (byte)code;
     }
+
+    public static byte[] AsArray(this OpCode code)
+    {
+        return [code.AsByte()];
+    }
 }

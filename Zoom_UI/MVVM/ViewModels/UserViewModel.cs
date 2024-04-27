@@ -74,7 +74,7 @@ public class UserViewModel : ViewModelBase, IUser
             return (a.ToString() + b).ToUpper();
         }
 
-        return words[0][1].ToString().ToUpper();
+        return words[0][0].ToString().ToUpper();
     }
 
     public UserModel AsModel() => new UserModel(Id, Username);

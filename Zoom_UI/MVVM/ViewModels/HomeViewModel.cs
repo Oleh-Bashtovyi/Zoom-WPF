@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Input;
+using WebEye.Controls.Wpf;
 using Zoom_UI.ClientServer;
 using Zoom_UI.MVVM.Core;
 using Zoom_UI.MVVM.Models;
@@ -12,6 +13,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 {
     private string _meetingCodeToJoin;
     private string _usernameChangeField;
+    private WebCameraControl _webCamera;
     private UserViewModel _currentUser;
     private UdpComunicator _comunicator;
     private ViewModelNavigator _navigator;
@@ -44,23 +46,36 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 
 
 
-    public HomeViewModel(UdpComunicator comunicator, ViewModelNavigator navigator)
+    public HomeViewModel(UdpComunicator comunicator, ViewModelNavigator navigator, WebCameraControl webCamera)
     {
+        _webCamera = webCamera;
         _comunicator = comunicator;
         _navigator = navigator;
 
         CurrentUser = new();
 
         ChangeNameCommand = new RelayCommand(
-            () => Task.Run(async () => await _comunicator.Send_ChangeName(CurrentUser.Id, UsernameChangeField)),
+            () => Task.Run(async () => await _comunicator.SEND_CHANGE_NAME(CurrentUser.Id, UsernameChangeField)),
             () => IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
 
         ConnectToServerCommand = new RelayCommand(
-            () => Task.Run(async () => await _comunicator.Send_CrateUser(UsernameChangeField)),
+            () => Task.Run(async () => await _comunicator.SEND_CREATE_USER(UsernameChangeField)),
             () => !IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
 
-        //CreateNewMeetingCommand = new RelayCommand(CreateNewMeeting, CanCreateNewMeeting);
-        //JoinMeetingUsingCodeCommand = new RelayCommand(JoinMeeting, CanJoinMeeting);
+        CreateNewMeetingCommand = new RelayCommand(
+            () => Task.Run(async () => await _comunicator.SEND_CREATE_MEETING()),
+            () => IsConnected
+            );
+        JoinMeetingUsingCodeCommand = new RelayCommand(
+            () => Task.Run(async () => 
+            { 
+                if(int.TryParse(MeetingCodeToJoin, out int code))
+                {
+                    await _comunicator.Send_JoinUsingMeetingUsingCode(code); 
+                }
+            }),
+            () => IsConnected && !string.IsNullOrWhiteSpace(MeetingCodeToJoin)
+            );
     }
 
 
@@ -68,13 +83,21 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     {
         _comunicator.OnUserCreated += OnUserConnected;
         _comunicator.OnUserChangedName += OnUserNameChanged;
+        _comunicator.OnMeetingCreated += OnMeetingCreated;
+        _comunicator.OnUserJoinedMeeting_UsingCode += OnMeetingCreated;
     }
 
+    private void OnMeetingCreated(MeetingInfo meeting)
+    {
+        _navigator.CurrentViewModel = new MeetingViewModel(_comunicator, _navigator, CurrentUser, meeting, _webCamera);
+    }
 
     void ISeverEventSubsribable.Unsubscribe()
     {
         _comunicator.OnUserCreated -= OnUserConnected;
         _comunicator.OnUserChangedName -= OnUserNameChanged;
+        _comunicator.OnMeetingCreated -= OnMeetingCreated;
+        _comunicator.OnUserJoinedMeeting_UsingCode -= OnMeetingCreated;
     }
 
 

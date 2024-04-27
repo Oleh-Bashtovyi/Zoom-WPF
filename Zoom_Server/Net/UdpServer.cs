@@ -74,7 +74,7 @@ internal class UdpServer : OneProcessServer
         {
             var opCode = pr.ReadOpCode();
 
-            if(opCode == OpCode.CreateUser)
+            if(opCode == OpCode.CREATE_USER)
             {
                 //============================================================
                 //CREATE USER:
@@ -90,12 +90,12 @@ internal class UdpServer : OneProcessServer
                 var client = new Client(asyncResult.RemoteEndPoint, userName);
                 Clients.Add(client);
                 using var pb = new PacketBuilder();
-                pb.Write(OpCode.CreateUser.AsByte());
+                pb.Write(OpCode.CREATE_USER.AsByte());
                 pb.Write_UserInfo(client.Id, userName);
                 log.LogWarning($"Sending new user info: id:{client.Id} username:{client.Username}");
                 await udpServer.SendAsync(pb.ToArray(), asyncResult.RemoteEndPoint, token);
             }
-            else if(opCode == OpCode.ChangeName)
+            else if(opCode == OpCode.CHANGE_USER_NAME)
             {
                 var userInfo = pr.ReadUserInfo();
                 var user = Clients.FirstOrDefault(x => x.Id == userInfo.Id);
@@ -103,12 +103,12 @@ internal class UdpServer : OneProcessServer
                 {
                     user.Username = userInfo.Username;
                     using var pb = new PacketBuilder();
-                    pb.Write(OpCode.ChangeName);
+                    pb.Write(OpCode.CHANGE_USER_NAME);
                     pb.Write_UserInfo(userInfo.Id, userInfo.Username);
                     await udpServer.SendAsync(pb.ToArray(), asyncResult.RemoteEndPoint, token);
                 }
             }
-            else if(opCode == OpCode.CreateMeeting)
+            else if(opCode == OpCode.CREATE_MEETING)
             {
                 //============================================================
                 //CREATE MEETING:
@@ -121,12 +121,12 @@ internal class UdpServer : OneProcessServer
                 var newMeeting = IdGenerator.NewId();
                 MeetingsIds.Add(newMeeting);
                 using var pb = new PacketBuilder();
-                pb.Write(OpCode.CreateMeeting.AsByte());   
+                pb.Write(OpCode.CREATE_MEETING.AsByte());   
                 pb.Write(newMeeting);                      
                 log.LogWarning($"Sending new meeting info: id:{newMeeting}");
                 await udpServer.SendAsync(pb.ToArray(), asyncResult.RemoteEndPoint, token);
             }
-            else if(opCode == OpCode.Participant_JoinMeetingUsingCode)
+            else if(opCode == OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING)
             {
                 //============================================================
                 //JOIN MEETING USING CODE:
@@ -144,13 +144,13 @@ internal class UdpServer : OneProcessServer
                 if(MeetingsIds.Contains(meetingCode))
                 {
                     using var pw = new PacketBuilder();
-                    pw.Write(OpCode.Participant_JoinMeetingUsingCode);
+                    pw.Write(OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
                     pw.Write(meetingCode);
                     log.Log($"Somebody asked to enter meeting room! Room id:{meetingCode}");
                     await udpServer.SendAsync(pw.ToArray(), asyncResult.RemoteEndPoint, token);
                 }
             }
-            else if(opCode == OpCode.Participant_JoinedMeeting)
+            else if(opCode == OpCode.PARTICIPANT_JOINED_MEETING)
             {
                 var userId = pr.ReadInt32();
                 var meetingCode = pr.ReadInt32();
@@ -176,7 +176,27 @@ internal class UdpServer : OneProcessServer
                 }
                 else log.LogError($"No Sych meeting!: Available meetings: [{string.Join(", ", MeetingsIds)}]");
             }
-            else if(opCode == OpCode.Participant_CameraFrame_Create)
+            else if(opCode == OpCode.PARTICIPANT_LEFT_MEETING)
+            {
+                var userInfo = pr.ReadUserInfo();
+                var user = Clients.FirstOrDefault(x => x.Id == userInfo.Id);
+
+                if(user != null && user.MeetingId > 0)
+                {
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.PARTICIPANT_LEFT_MEETING);
+                    pb.Write_UserInfo(userInfo.Id, userInfo.Username);
+
+                    foreach (var participant in Clients.Where(x => x.MeetingId == user.MeetingId))
+                    {
+                        await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                    }
+
+                    user.MeetingId = -1;
+                }
+
+            }
+            else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CREATE)
             {
                 //============================================================
                 //CREATE CAMERA FRAME:
@@ -199,7 +219,7 @@ internal class UdpServer : OneProcessServer
                     //await udpServer.SendAsync(response, asyncResult.RemoteEndPoint, token);
                 }
             }
-            else if(opCode == OpCode.Participant_CameraFrame_Update)
+            else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE)
             {
                 //============================================================
                 //UPDATE CAMERA FRAME:
@@ -267,7 +287,7 @@ internal class UdpServer : OneProcessServer
             foreach(var participant_2 in participants)
             {
                 pb.Clear();
-                pb.Write(OpCode.Participant_JoinedMeeting);
+                pb.Write(OpCode.PARTICIPANT_JOINED_MEETING);
                 pb.Write_UserInfo(participant_2.Id, participant_2.Username);
                 log.LogSuccess($"Broadcating joining info about user:{participant_2.Id} to user: {participant.Id}");
                 await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
@@ -287,7 +307,7 @@ internal class UdpServer : OneProcessServer
         foreach (var participant in participants)
         {
             pb.Clear();
-            pb.Write(OpCode.Participant_CameraFrame_Create.AsByte());
+            pb.Write(OpCode.PARTICIPANT_CAMERA_FRAME_CREATE.AsByte());
             pb.Write(userId);
             pb.Write(frames.Count());
             await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
@@ -295,7 +315,7 @@ internal class UdpServer : OneProcessServer
             for (int i = 0; i < frames.Length; i++)
             {
                 pb.Clear();
-                pb.Write(OpCode.Participant_CameraFrame_Update.AsByte());
+                pb.Write(OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE.AsByte());
                 pb.Write_UserFrame(userId, i, frames[i]);
                 await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
             }

@@ -10,7 +10,7 @@
              d:DataContext="{d:DesignInstance vms:HomeViewModel}"
              MinHeight="300"
              MinWidth="500"
-             d:DesignHeight="500" d:DesignWidth="800">
+             d:DesignHeight="600" d:DesignWidth="900">
     
 
     <Grid>
@@ -67,10 +67,14 @@
 
         <Border Grid.Row="1" Style="{StaticResource DefaultBorder}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource DefaultTextBlock}" FontWeight="Bold" Text="Id:" />
+                <TextBlock DockPanel.Dock="Top" 
+                           Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
+                           Style="{StaticResource DefaultTextBlock}" 
+                           FontWeight="Bold" Text="Id:" />
                 <TextBox DockPanel.Dock="Top"
                          Margin="10 10 10 0"
                          IsReadOnly="True"
+                         Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
                          Text="{Binding UserId, Mode=OneWay}"
                          Style="{StaticResource DefaultTextBox}" 
                          HorizontalAlignment="Stretch"/>
@@ -83,6 +87,12 @@
                      Style="{StaticResource DefaultTextBox}" 
                      HorizontalAlignment="Stretch"/>
 
+                <Button DockPanel.Dock="Top" Margin="10 10 10 0" 
+                    FontSize="18" Height="35" 
+                    Content="Change name" 
+                    Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Command="{Binding ChangeNameCommand}"/>
+
                 <Button DockPanel.Dock="Bottom"
                     Margin="10 10 10 20" 
                     FontSize="18" 
@@ -92,10 +102,7 @@
                     <TextBlock Text="Connect" Style="{DynamicResource DefaultTextBlock}"/>
                 </Button>
 
-                <Button DockPanel.Dock="Top" Margin="10 10 10 0" 
-                    FontSize="18" Height="35" 
-                    Content="Change name" 
-                    Command="{Binding ChangeNameCommand}"/>
+
                 <Border/>
             </DockPanel>
         </Border>
@@ -121,16 +128,23 @@
                 </DockPanel.Resources>
                 
                 <Button Style="{StaticResource RoundButton}" 
+                        IsEnabled="{Binding IsConnected}"
                         Background="{DynamicResource OnButton}"
                         Command="{Binding JoinMeetingUsingCodeCommand}"
                         Width="90" Margin="10 0 0 0">
 
-                    <TextBlock Text="Join using code" Style="{StaticResource DefaultTextBlock}"
-                               FontSize="15" HorizontalAlignment="Center" TextAlignment="Center"
+                    <TextBlock Text="Join using code" 
+                               Style="{StaticResource DefaultTextBlock}"
+                               FontSize="15" 
+                               HorizontalAlignment="Center" 
+                               TextAlignment="Center"
                                FontWeight="Bold"/>
                 </Button>
 
-                <TextBox Style="{StaticResource DefaultTextBox}" Margin="10 0 0 0" Width="100"/>
+                <TextBox Text="{Binding MeetingCodeToJoin, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding IsConnected}"
+                         Style="{StaticResource DefaultTextBox}" 
+                         Margin="10 0 0 0" Width="100"/>
 
                 <Button DockPanel.Dock="Right"  Margin="0 0 10 0"
                         Style="{StaticResource RoundButton}"

@@ -12,18 +12,18 @@ public partial class MeetingWindow : Window
         InitializeComponent();
 
 
-        var _webCameraControl = new WebCameraControl();
+/*        var _webCameraControl = new WebCameraControl();
         var _webCameraId = _webCameraControl?.GetVideoCaptureDevices().ElementAt(1);
         _webCameraControl?.StartCapture(_webCameraId);
 
 
 
-        DataContext = new MeetingViewModel(_webCameraControl);
+        DataContext = new MeetingViewModel(_webCameraControl);*/
     }
-
+/*
     private void MessagesSectionButton_Click(object sender, RoutedEventArgs e)
     {
-        /*        if (MessagesContainer.Visibility == Visibility.Visible)
+        *//*        if (MessagesContainer.Visibility == Visibility.Visible)
                 {
                     MessagesContainer.Visibility = Visibility.Collapsed;
                     var column_definition = MainGrid.ColumnDefinitions.Last();
@@ -36,7 +36,7 @@ public partial class MeetingWindow : Window
                     var column_definition = MainGrid.ColumnDefinitions.Last();
                     column_definition.MinWidth = 250;
                     GridSpliter.IsEnabled = true;
-                }*/
+                }*//*
 
         if (MessagesContainer.Visibility == Visibility.Visible)
         {
@@ -57,9 +57,9 @@ public partial class MeetingWindow : Window
             GridSpliter.IsEnabled = true;
         }
 
-        /*        MessagesContainer.Visibility =
+        *//*        MessagesContainer.Visibility =
                     MessagesContainer.Visibility == Visibility.Visible ?
                     Visibility.Collapsed :
-                    Visibility.Visible;*/
-    }
+                    Visibility.Visible;*//*
+    }*/
 }

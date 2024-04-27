@@ -1,37 +1,32 @@
 ﻿namespace Zoom_Server.Net;
 
-public enum OpCode
+public enum OpCode : byte
 {
     //General
     //=============================
-    None,
-    Success,
-    Error,
+    NONE,
+    ERROR,
     //Creation
     //=============================
-    GetId,
-    ChangeName,
-    CreateUser,
-    CreateMeeting,
+    GET_USER_ID,
+    CHANGE_USER_NAME,
+    CREATE_USER,
+    CREATE_MEETING,
     //meeting joining
     //=============================
-    Participant_JoinMeetingUsingCode,
+    PARTICIPANT_USES_CODE_TO_JOIN_MEETING,
     //meeting process
     //=============================
-    Participant_JoinedMeeting,
-    Participant_LeftMeeting,
+    PARTICIPANT_JOINED_MEETING,
+    PARTICIPANT_LEFT_MEETING,
     //camera frame
     //=============================
-    Participant_CameraFrame_Create,
-    Participant_CameraFrame_Update,
-    //speek
-    //=============================
-    Participant_SpeekFrame_Create,
-    Participant_SpeekFrame_Update,
+    PARTICIPANT_CAMERA_FRAME_CREATE,
+    PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE,
     //messages
     //=============================
-    Participant_MessageSent_ToEveryone,
-    Participant_MessageSent_Private,
+    PARTICIPANT_MESSAGE_SENT_EVERYONE,
+    PARTICIPANT_MESSAGE_SENT_PRIVATE,
 }
 //=====================================================
 //CONNECTION TO SERVER:

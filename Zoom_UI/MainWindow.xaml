@@ -8,7 +8,8 @@
         xmlns:views="clr-namespace:Zoom_UI.MVVM.Views"
         mc:Ignorable="d"
          d:DataContext="{d:DesignInstance vms:MainViewModel}"
-        Title="MainWindow" Height="450" Width="800">
+         SizeToContent="WidthAndHeight"
+        Title="MainWindow" Height="600" Width="900">
     
     
     
@@ -17,11 +18,14 @@
             <DataTemplate DataType="{x:Type vms:HomeViewModel}">
                 <views:HomeView />
             </DataTemplate>
-            <!--            <DataTemplate DataType="{x:Type vms:ReservationListingViewModel}">
-                <views:ReservationListingView />
-            </DataTemplate>-->
+            <DataTemplate DataType="{x:Type vms:MeetingViewModel}">
+                <views:MeetingView />
+            </DataTemplate>
         </Grid.Resources>
 
-        <ContentControl Content="{Binding CurrentViewModel}" />
+        <ContentControl 
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Content="{Binding CurrentViewModel}" />
     </Grid>
 </Window>

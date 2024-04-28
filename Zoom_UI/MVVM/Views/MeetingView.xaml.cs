@@ -20,7 +20,7 @@ namespace Zoom_UI.MVVM.Views
     /// <summary>
     /// Interaction logic for MeetingView.xaml
     /// </summary>
-    public partial class MeetingView : UserControl
+    public partial class MeetingView : System.Windows.Controls.UserControl
     {
         public MeetingView()
         {
@@ -64,12 +64,12 @@ namespace Zoom_UI.MVVM.Views
         private void UserControl_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // Update the MainWindow size
-            Window mainWindow = Window.GetWindow(this);
+/*            Window mainWindow = Window.GetWindow(this);
             if (mainWindow != null)
             {
-                mainWindow.MinWidth = e.NewSize.Width;
-                mainWindow.MinHeight = e.NewSize.Height;
-            }
+                mainWindow.MinWidth = e.NewSize.Width + 30;
+                mainWindow.MinHeight = e.NewSize.Height + 30;
+            }*/
         }
     }
 }

@@ -266,6 +266,41 @@ internal class UdpServer : OneProcessServer
                     }
                 }
             }
+            if(opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
+            {
+                var fromUserId = pr.ReadInt32();
+                var toUserId = pr.ReadInt32();
+                var message = pr.ReadString();
+                var fromClient = Clients.FirstOrDefault(x => x.Id ==  fromUserId);  
+                var toClient = Clients.FirstOrDefault(x => x.Id ==  toUserId);  
+
+                if(fromClient != null && fromClient.MeetingId > 0)
+                {
+                    if(toClient != null)
+                    {
+                        using var pb = new PacketBuilder();
+                        pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);  //Code
+                        pb.Write(fromClient.Id);                             //From user (id)
+                        pb.Write(toClient.Id);                               //to user (id)
+                        pb.Write(message);                                   //Message
+                        await udpServer.SendAsync(pb.ToArray(), fromClient.IPAddress, token);
+                        await udpServer.SendAsync(pb.ToArray(), toClient.IPAddress, token);
+                    }
+                    else
+                    {
+                        using var pb = new PacketBuilder();
+                        pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);  //Code
+                        pb.Write(fromClient.Id);                             //From user (id)
+                        pb.Write(-1);                                   //to user (id)
+                        pb.Write(message);                                   //Message
+
+                        foreach (var participant in Clients.Where(x => x.MeetingId == fromClient.MeetingId))
+                        {
+                            await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                        }
+                    }
+                }
+            }
 
 
 

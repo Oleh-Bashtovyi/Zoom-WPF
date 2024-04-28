@@ -38,7 +38,6 @@ public class UdpComunicator : OneProcessServer
     public event Action<MessageInfo>? OnMessageSent;
 
 
-
     public UdpComunicator(string host, int port, ILogger logger) : base(host, port, logger)
     {
         _comunicator = new();
@@ -75,7 +74,7 @@ public class UdpComunicator : OneProcessServer
     public async Task SEND_CAMERA_FRAME(int fromUser_id, Bitmap bitmap)
     {
         var bytes = bitmap.AsByteArray();
-        var clusters = bytes.AsClusters(8192);
+        var clusters = bytes.AsClusters(32768);
         using var pw = new PacketBuilder();
         pw.Write(OpCode.PARTICIPANT_CAMERA_FRAME_CREATE);
         pw.Write(fromUser_id);
@@ -94,6 +93,16 @@ public class UdpComunicator : OneProcessServer
             await _comunicator.SendAsync(data, _serverEndPoint);
             await Task.Delay(5);
         }
+    }
+
+    public async Task SEND_MESSAGE_EVERYONE(int fromUserId, int toUserId, string message)
+    {
+        using var pb = new PacketBuilder();
+        pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);
+        pb.Write(fromUserId); 
+        pb.Write(toUserId); 
+        pb.Write(message);
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
 
 
@@ -177,6 +186,13 @@ public class UdpComunicator : OneProcessServer
                         var userId = pr.ReadInt32();
                         var userName = pr.ReadString();
                         OnUserJoinedMeeting?.Invoke(new(userId, userName));
+                    }
+                    else if(opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
+                    {
+                        var fromUser = pr.ReadInt32();
+                        var toUser = pr.ReadInt32();
+                        var message = pr.ReadString();
+                        OnMessageSent?.Invoke(new(fromUser, toUser, message));
                     }
                     else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CREATE)
                     {

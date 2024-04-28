@@ -37,41 +37,95 @@
                 Grid.Column="0"
                 Style="{DynamicResource DefaultBorder}"
                 Background="{DynamicResource MainBrush}">
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding Participants}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal" Margin="5"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="5" Style="{DynamicResource DefaultBorder}" Width="285" Height="215">
-                                <Grid Background="{DynamicResource SecondaryBrush}">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="40"/>
-                                    </Grid.RowDefinitions>
 
-                                    <TextBlock FontWeight="Bold" FontSize="40" 
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Foreground="{DynamicResource MainFontBrush}"
-                                               Text="{Binding ShortName}"/>
-                                    <Image Margin="5" Source="{Binding CameraImage}"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <ScrollViewer DockPanel.Dock="Top">
+                    <ScrollViewer.Resources>
+                        <Style TargetType="ScrollViewer">
+                            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+                            <Setter Property="VerticalScrollBarVisibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDemonstrationActive}" Value="True">
+                                    <Setter Property="HorizontalScrollBarVisibility" Value="Visible" />
+                                    <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Resources>
+                
+                
+                
+                
+                    <ItemsControl ItemsSource="{Binding Participants}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal" Margin="5"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="5" BorderBrush="Black" BorderThickness="1">
+                                    <Border.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Width" Value="285"/>
+                                            <Setter Property="Height" Value="215"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
+                                                    <Setter Property="Width" Value="200" />
+                                                    <Setter Property="Height" Value="115"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Resources>
 
 
-                                    <TextBlock Grid.Row="1"
-                                               HorizontalAlignment="Center"
-                                               Style="{DynamicResource DefaultTextBlock}"
-                                               Text="{Binding Username}"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                                    <Grid Background="{DynamicResource SecondaryBrush}">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="40"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock FontWeight="Bold" FontSize="40" 
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource MainFontBrush}"
+                                                   Text="{Binding ShortName}"/>
+                                        <Image Margin="5" Source="{Binding CameraImage}"
+                                               RenderOptions.BitmapScalingMode="HighQuality"/>
+
+
+                                        <TextBlock Grid.Row="1"
+                                                   HorizontalAlignment="Center"
+                                                   Style="{DynamicResource DefaultTextBlock}"
+                                                   Text="{Binding Username}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <Image Grid.Row="1" Source="{Binding ScreenDemonstrationImage}" Margin="5 10 5 5" DockPanel.Dock="Bottom"
+                       RenderOptions.BitmapScalingMode="HighQuality">
+                    <Image.Resources>
+                        <Style TargetType="Image">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDemonstrationActive}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Resources>
+                </Image>
+            </Grid>
         </Border>
+        
 
         <Border Grid.Column="3" Grid.RowSpan="2" 
                 x:Name="MessagesContainer"

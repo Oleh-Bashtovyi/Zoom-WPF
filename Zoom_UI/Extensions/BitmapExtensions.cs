@@ -40,4 +40,32 @@ static class BitmapExtensions
         bi.EndInit();
         return bi;
     }
+
+    public static Bitmap ResizeBitmap(this Bitmap originalBitmap, int maxWidth, int maxHeight)
+    {
+        // Calculate the ratio of the original image
+        double ratioX = (double)maxWidth / originalBitmap.Width;
+        double ratioY = (double)maxHeight / originalBitmap.Height;
+        double ratio = Math.Min(ratioX, ratioY);
+
+        // Calculate the new dimensions maintaining the aspect ratio
+        int newWidth = (int)(originalBitmap.Width * ratio);
+        int newHeight = (int)(originalBitmap.Height * ratio);
+
+        // Create a new Bitmap with the new dimensions
+        Bitmap resizedBitmap = new Bitmap(newWidth, newHeight);
+
+        // Create a Graphics object from the resizedBitmap
+        using (Graphics g = Graphics.FromImage(resizedBitmap))
+        {
+            // Draw the originalBitmap onto the resizedBitmap with the new dimensions
+            g.DrawImage(originalBitmap, 0, 0, newWidth, newHeight);
+        }
+
+        // Return the resized Bitmap
+        return resizedBitmap;
+    }
+
+
+
 }

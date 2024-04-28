@@ -17,6 +17,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     private UserViewModel _currentUser;
     private UdpComunicator _comunicator;
     private ViewModelNavigator _navigator;
+    private ApplicationData _applicationData;
 
 
     public bool IsConnected => CurrentUser?.Id > 0;
@@ -46,14 +47,15 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 
 
 
-    public HomeViewModel(UdpComunicator comunicator, ViewModelNavigator navigator, WebCameraControl webCamera)
+    public HomeViewModel(ApplicationData data)
     {
-        _webCamera = webCamera;
-        _comunicator = comunicator;
-        _navigator = navigator;
-
-        CurrentUser = new();
+        _applicationData = data;
+        _webCamera = data.WebCamera;
+        _comunicator = data.Comunicator;
+        _navigator = data.Navigator;
+        CurrentUser = data.CurrentUser;
         CurrentUser.IsCurrentUser = true;
+
 
         ChangeNameCommand = new RelayCommand(
             () => Task.Run(async () => await _comunicator.SEND_CHANGE_NAME(CurrentUser.Id, UsernameChangeField)),
@@ -90,7 +92,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 
     private void OnMeetingCreated(MeetingInfo meeting)
     {
-        _navigator.CurrentViewModel = new MeetingViewModel(_comunicator, _navigator, CurrentUser, meeting, _webCamera);
+        _navigator.CurrentViewModel = new MeetingViewModel(_applicationData, meeting);
     }
 
     void ISeverEventSubsribable.Unsubscribe()

@@ -210,13 +210,22 @@ internal class UdpServer : OneProcessServer
 
                 var userId = pr.ReadInt32();
                 var numberOfCusters = pr.ReadInt32();
+                var client = Clients.FirstOrDefault(x => x.Id == userId);
 
-                if(Clients.Any(x => x.Id == userId))
+                if(client != null && client.MeetingId > 0)
                 {
+                    client.IsUsingCamera = true;
                     User_CameraFrame[userId] = new FrameBuilder(numberOfCusters);
-                    log.LogSuccess($"Frame builder for user: {userId} created with clusters size: {numberOfCusters}");
-                    //var response = new byte[] { OpCode.Participant_CameraFrame_Create.AsByte() };
-                    //await udpServer.SendAsync(response, asyncResult.RemoteEndPoint, token);
+                    //log.LogSuccess($"Frame builder for user: {userId} created with clusters size: {numberOfCusters}");
+
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.PARTICIPANT_TURNED_CAMERA_ON);
+                    pb.Write(client.Id);
+
+                    foreach(var participant in Clients.Where(x => x.MeetingId == client.MeetingId))
+                    {
+                        await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                    }
                 }
             }
             else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE)
@@ -266,7 +275,28 @@ internal class UdpServer : OneProcessServer
                     }
                 }
             }
-            if(opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
+
+
+            else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_OFF)
+            {
+                var userId = pr.ReadInt32();
+                var client = Clients.FirstOrDefault(x => x.Id == userId);
+
+                if(client != null && client.MeetingId > 0)
+                {
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.PARTICIPANT_TURNED_CAMERA_OFF);
+                    pb.Write(client.Id);
+
+                    foreach (var participant in Clients.Where(x => x.MeetingId == client.MeetingId))
+                    {
+                        await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                    }
+                }
+            }
+
+
+            else if(opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
             {
                 var fromUserId = pr.ReadInt32();
                 var toUserId = pr.ReadInt32();

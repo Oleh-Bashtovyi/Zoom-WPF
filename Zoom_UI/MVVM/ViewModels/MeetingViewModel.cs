@@ -8,45 +8,26 @@ using Zoom_UI.MVVM.Models;
 using Zoom_UI.Extensions;
 using System.Drawing;
 using Zoom_UI.ClientServer;
-using System.Windows.Controls;
-
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
-public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
+public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposable
 {
     private readonly UserViewModel _everyone = new("Everyone", -1);
     private UserViewModel _selectedParticipant;
     private UserViewModel _currentUser;
     private ViewModelNavigator _navigator;
     private UdpComunicator _comunicator;
-
+    private WebCameraControl _webCamera;
+    private WebCameraId _selectedWebCam;
     private BitmapImage _screenDemonstrationImage;
     private UserViewModel _screenDemonstrator;
-
-
+    private ApplicationData _applicationData;
+    private CancellationTokenSource CameraTokenSource;
     private string _message;
     private string _theme;
     private int _meetingId;
 
-
-    public bool IsDemonstrationActive => ScreenDemonstrationImage != null;
-
-    public UserViewModel ScreenDemonstrator
-    {
-        get => _screenDemonstrator;
-        set => SetAndNotifyPropertyChanged(ref _screenDemonstrator, value);
-    }
-
-    public BitmapImage ScreenDemonstrationImage
-    {
-        get => _screenDemonstrationImage;
-        set
-        {
-            SetAndNotifyPropertyChanged(ref _screenDemonstrationImage, value);
-            OnPropertyChanged(nameof(IsDemonstrationActive));
-        }
-    }
 
 
     #region PROPERTIES
@@ -60,11 +41,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         get => _meetingId;
         set => SetAndNotifyPropertyChanged(ref  _meetingId, value);
     }
-    public string CurrentTheme
-    {
-        get => _theme;
-        set => SetAndNotifyPropertyChanged(ref _theme, value);
-    }
+    public string CurrentTheme => _applicationData.ThemeManager.CurrentTheme;
     public UserViewModel CurrentUser 
     {
         get => _currentUser;
@@ -75,6 +52,21 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         get => _selectedParticipant;
         set => SetAndNotifyPropertyChanged(ref _selectedParticipant, value);  
     }
+    public UserViewModel ScreenDemonstrator
+    {
+        get => _screenDemonstrator;
+        set => SetAndNotifyPropertyChanged(ref _screenDemonstrator, value);
+    }
+    public BitmapImage ScreenDemonstrationImage
+    {
+        get => _screenDemonstrationImage;
+        set
+        {
+            SetAndNotifyPropertyChanged(ref _screenDemonstrationImage, value);
+            OnPropertyChanged(nameof(IsDemonstrationActive));
+        }
+    }
+    public bool IsDemonstrationActive => ScreenDemonstrationImage != null;
     #endregion
 
     #region COLLECCTIONS
@@ -94,12 +86,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
     public ICommand StartSharingScreenCommand {  get; }
     #endregion
 
-    private WebCameraControl _webCamera;
 
 
 
 
-    public WebCameraId _selectedWebCam;
     public ObservableCollection<WebCameraId> WebCameras { get; } = new();   
     public WebCameraId SelectedWebCamDevice
     {
@@ -108,7 +98,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
     }
 
 
-    public MeetingViewModel(UdpComunicator comunicator, ViewModelNavigator navigator, UserViewModel currentUser, MeetingInfo meeting, WebCameraControl webCamera)
+    public MeetingViewModel(ApplicationData data, MeetingInfo meeting)
     {
         #region Commands_initialization
         CopyMeetingIdCommand =        new RelayCommand(() => Clipboard.SetText(MeetingId.ToString()));
@@ -116,44 +106,50 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         SwitchMicrophonStateCommand = new RelayCommand(SwitchMicrophoneState);
         LeaveMeetingCommand =         new RelayCommand(LeaveMeeting);
         StartSharingScreenCommand =   new RelayCommand(StartSharingScreen);
+        ChangeThemeCommand = new RelayCommand(ChangeTheme);
         SendMessageCommand =          new RelayCommand(SendMessage, () => !string.IsNullOrWhiteSpace(Message) && SelectedParticipant != null);
         #endregion
 
 
-
         #region Initial_data
-        CurrentUser = currentUser;
-        CurrentUser.IsCurrentUser = true;
+        _applicationData = data;
+        CurrentUser = data.CurrentUser;
         ParticipantsSelection.Add(_everyone);
         AddUserToCollections(CurrentUser);
-        /*        AddUserToCollections(CurrentUser);
-                AddUserToCollections(CurrentUser);
-                AddUserToCollections(CurrentUser);
-                AddUserToCollections(CurrentUser);
-                AddUserToCollections(CurrentUser);
-                AddUserToCollections(CurrentUser);*/
         SelectedParticipant = _everyone;
-        _navigator = navigator;
-        _comunicator = comunicator;
+        _navigator = data.Navigator;
+        _comunicator = data.Comunicator;
         _meetingId = meeting.Id;
-        _webCamera = webCamera;
-        CurrentTheme = "light";
-        #endregion
-
+        _webCamera = data.WebCamera;
 
         Application.Current.Dispatcher.Invoke(() =>
         {
-            foreach(var device in _webCamera.GetVideoCaptureDevices())
+            foreach (var device in _webCamera.GetVideoCaptureDevices())
             {
-                WebCameras.Add(device);    
+                WebCameras.Add(device);
             }
         });
         SelectedWebCamDevice = WebCameras[0];
-        //CurrentUser.Id = 1000;
-        //AddUserToCollections(CurrentUser);
+        #endregion
     }
 
 
+
+    private void ChangeTheme()
+    {
+        try
+        {
+            _applicationData.ThemeManager.NextTheme();
+        }
+        catch ( Exception ex)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show(ex.Message);
+                ErrorsList.Add(ex.Message);
+            });
+        }
+    }
 
 
 
@@ -163,7 +159,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
     }
 
 
-    private CancellationTokenSource CameraTokenSource;
+
     private void SwitchCameraState()
     {
         try
@@ -173,14 +169,15 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
                 if (_webCamera.IsCapturing)
                 {
                     CameraTokenSource?.Cancel();
+                    CurrentUser.IsCameraOn = false;
                     _webCamera.StopCapture();
+                    Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_CAMERA(CurrentUser.Id));
                 }
                 else
                 {
                     CameraTokenSource = new CancellationTokenSource();
-                    //var device = _webCamera.GetVideoCaptureDevices().ElementAt(0);
+                    CurrentUser.IsCameraOn = true;
                     _webCamera.StartCapture(SelectedWebCamDevice);
-
                     Task.Run((async() => await CaptureProcess(CameraTokenSource.Token)));
                 }
             });
@@ -194,6 +191,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
             });
         }
     }
+
 
 
     private void LeaveMeeting()
@@ -214,7 +212,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
     private void SendMessage()
     {
-        Task.Run(() => _comunicator.SEND_MESSAGE(CurrentUser.Id, SelectedParticipant?.Id ?? -1, Message));
+        if (!string.IsNullOrWhiteSpace(Message))
+        {
+            Task.Run(() => _comunicator.SEND_MESSAGE(CurrentUser.Id, SelectedParticipant?.Id ?? -1, Message));
+        }
     }
 
 
@@ -251,15 +252,15 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
                         //var frame = Screenshot()?.ResizeBitmap(500, 500);
                         //var frame = Screenshot();
 
-                        if (frame != null)
+                        if (frame != null && CurrentUser.IsCameraOn)
                         {
-                            //await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, frame);
+                            await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, frame);
                             //CurrentUser.CameraImage = frame.AsBitmapImage();
-                            ScreenDemonstrationImage = frame.AsBitmapImage();
+                            //ScreenDemonstrationImage = frame.AsBitmapImage();
                         }
                     }
                 });
-                await Task.Delay(180, token);
+                await Task.Delay(60, token);
             }
         }
         catch (Exception ex)
@@ -267,14 +268,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
             Application.Current.Dispatcher.Invoke(() =>
             {
                 ErrorsList.Add(ex.Message);
-            });
-        }
-        finally
-        {
-            //CurrentUser.CameraImage = null;
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                CurrentUser.CameraImage = null;
             });
         }
     }
@@ -285,26 +278,20 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
     public Bitmap Screenshot()
     {
-
-
         // Get the size of the primary screen using SystemParameters
 /*        int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
         int screenHeight = (int)SystemParameters.PrimaryScreenHeight;*/
-
         int screenWidth = 1920;
         int screenHeight = 1080;
 
-        // Create a bitmap to hold the screenshot
         Bitmap screenshot = new Bitmap(screenWidth, screenHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
-        // Create a Graphics object from the bitmap
         using (Graphics graphics = Graphics.FromImage(screenshot))
         {
-            // Capture the screen
-            graphics.CopyFromScreen(0, 0, 0, 0, new System.Drawing.Size(screenWidth, screenHeight));
+            graphics.CopyFromScreen(
+                0, 0, 0, 0, 
+                new System.Drawing.Size(screenWidth, screenHeight));
         }
-
-        // Return the screenshot
         return screenshot;
     }
 
@@ -312,24 +299,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
 
 
-
-    private void ReplaceTheme(string newTheme)
-    {
-        var newThemeDict = new ResourceDictionary()
-        {
-            Source = new Uri($"Themes/{newTheme}.xaml", UriKind.Relative)
-        };
-
-
-        ResourceDictionary oldTheme = Application.Current.Resources.MergedDictionaries
-            .FirstOrDefault(d => d.Source.OriginalString == "Themes/LightTheme.xaml");
-
-        if (oldTheme != null)
-        {
-            Application.Current.Resources.MergedDictionaries.Remove(oldTheme);
-        }
-        Application.Current.Resources.MergedDictionaries.Add(newThemeDict);
-    }
     private void AddNewMessage(UserViewModel from, UserViewModel to, string content)
     {
         var message = new MessageModel();
@@ -356,17 +325,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         }
     }
 
-    private void UpdateUserCameraFrame(int uid, BitmapImage bitmap)
-    {
-        var user = Participants.FirstOrDefault(x => x.Id == uid);
-
-        if(user != null)
-        {
-            user.CameraImage = bitmap;
-        }
-    }
-
-
 
 
     private void AddUserToCollections(UserViewModel user)
@@ -383,9 +341,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
 
 
-
-
-
+    #region SERVER_EVENTS
+    //PARTICIPATING
+    //===========================================================
     private void OnUserJoinedMeeting(UserModel model)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -393,14 +351,13 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
             AddNewUser(model);
         });
     }
-
     private void OnUserLeftMeeting(UserModel model)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             if(model.Id == CurrentUser.Id)
             {
-                _navigator.CurrentViewModel = new HomeViewModel(_comunicator, _navigator, _webCamera);
+                _navigator.CurrentViewModel = new HomeViewModel(_applicationData);
             }
             else 
             { 
@@ -409,57 +366,112 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         });
     }
 
-    private void OnUSerFrameUpdated(CameraFrame frame)
+    //CAMERA FRAME
+    //===========================================================
+    private void OnUserCameraFrameFrameUpdated(CameraFrame frame)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-           UpdateUserCameraFrame(frame.UserId, frame.Image);
+            var user = Participants.FirstOrDefault(x => x.Id == frame.UserId);
+
+            if (user != null)
+            {
+                user.CameraImage = frame.Image;
+            }
+        });
+    }
+    private void OnUserCameraTurnedOn(UserModel model)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var user = Participants.FirstOrDefault(x => x.Id == model.Id);
+
+            if (user != null)
+            {
+                user.IsCameraOn = true;
+            }
+        });
+    }
+    private void OnUserCameraTurnedOff(UserModel model)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var user = Participants.FirstOrDefault(x => x.Id == model.Id);
+
+            if (user != null)
+            {
+                user.IsCameraOn = false;
+            }
         });
     }
 
-
+    //MESSAGES
+    //===========================================================
     private void OnMessagereceived(MessageInfo message)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            //MessageBox.Show($"Received message: from {message.SenderId}, to: {message.ReceiverId}, content: {message.Content}");
             var from = Participants.FirstOrDefault(x => x.Id == message.SenderId) ?? new();
             var to = Participants.FirstOrDefault(x => x.Id == message.ReceiverId) ?? _everyone;
             AddNewMessage(from, to, message?.Content ?? string.Empty);
         });
     }
-
-
     private void OnErrorReceived(ErrorModel model)
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             MessageBox.Show(model.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            ErrorsList.Add(model.Message ?? string.Empty);
         });
     }
 
-
+    //EVENTS SUBSCRIPTION
+    //===========================================================
+    private void NotifyThemeChanged(string newTheme)
+    {
+        OnPropertyChanged(nameof(CurrentTheme));
+    }
     void ISeverEventSubsribable.Subscribe()
     {
-        _comunicator.OnUserJoinedMeeting += OnUserJoinedMeeting;
-        _comunicator.OnUserLeftMeeting += OnUserLeftMeeting;
-        _comunicator.OnCameraFrameUpdated += OnUSerFrameUpdated;
+        //participating
+        _comunicator.OnUser_JoinedMeeting += OnUserJoinedMeeting;
+        _comunicator.OnUser_LeftMeeting += OnUserLeftMeeting;
+        //camera frames
+        _comunicator.OnCameraFrameOfUserUpdated += OnUserCameraFrameFrameUpdated;
+        _comunicator.OnUser_TurnedCamera_OFF += OnUserCameraTurnedOff;
+        _comunicator.OnUser_TurnedCamera_ON += OnUserCameraTurnedOn;
+        //messages
         _comunicator.OnMessageSent += OnMessagereceived;
         _comunicator.OnErrorReceived += OnErrorReceived;
+        _applicationData.ThemeManager.OnThemeChanged += NotifyThemeChanged;
 
         Task.Run(async() => await _comunicator.SEND_USER_JOINED_MEETING(CurrentUser.Id, _meetingId));
     }
-
-
-
     void ISeverEventSubsribable.Unsubscribe()
     {
-        _comunicator.OnUserJoinedMeeting -= OnUserJoinedMeeting;
-        _comunicator.OnUserLeftMeeting -= OnUserLeftMeeting;
-        _comunicator.OnCameraFrameUpdated -= OnUSerFrameUpdated;
+        //participating
+        _comunicator.OnUser_JoinedMeeting -= OnUserJoinedMeeting;
+        _comunicator.OnUser_LeftMeeting -= OnUserLeftMeeting;
+        //camera frames
+        _comunicator.OnCameraFrameOfUserUpdated -= OnUserCameraFrameFrameUpdated;
+        _comunicator.OnUser_TurnedCamera_OFF -= OnUserCameraTurnedOff;
+        _comunicator.OnUser_TurnedCamera_ON -= OnUserCameraTurnedOn;
+        //messages
         _comunicator.OnMessageSent -= OnMessagereceived;
         _comunicator.OnErrorReceived -= OnErrorReceived;
+        _applicationData.ThemeManager.OnThemeChanged -= NotifyThemeChanged;
     }
+
+    public void Dispose()
+    {
+        var vm = this as ISeverEventSubsribable;
+        vm.Unsubscribe();
+
+        CameraTokenSource?.Dispose();
+
+        Task.Run(async () => await _applicationData.Comunicator.SEND_USER_LEAVE_MEETING(CurrentUser.Id, CurrentUser.Username));
+    }
+    #endregion
 }
 
 #pragma warning restore CS8618

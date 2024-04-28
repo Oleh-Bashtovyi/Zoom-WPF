@@ -5,8 +5,10 @@ namespace Zoom_Server.Net;
 internal class Client
 {
     public int Id { get; set; }
-    public int MeetingId { get; set; }
     public string Username { get; set; }
+    public int MeetingId { get; set; }
+    public bool IsUsingCamera {  get; set; }
+    public bool IsUsingAudio {  get; set; }
     public IPEndPoint IPAddress { get; set; }
 
 

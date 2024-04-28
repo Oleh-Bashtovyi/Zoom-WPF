@@ -44,11 +44,25 @@ public class UdpComunicator : OneProcessServer
     public event Action<MeetingInfo>? OnMeetingCreated;
     public event Action<MeetingInfo>? OnUserJoinedMeeting_UsingCode;
 
-    public event Action<UserModel>? OnUserJoinedMeeting;
-    public event Action<UserModel>? OnUserLeftMeeting;
+    //PARTICIPATING
+    public event Action<UserModel>? OnUser_JoinedMeeting;
+    public event Action<UserModel>? OnUser_LeftMeeting;
 
-    public event Action<CameraFrame>? OnCameraFrameUpdated;
+    //CAMERA IMAGE
+    public event Action<CameraFrame>? OnCameraFrameOfUserUpdated;
+    public event Action<UserModel>? OnUser_TurnedCamera_ON;
+    public event Action<UserModel>? OnUser_TurnedCamera_OFF;
+
+    //SCREEN SHARE
+    public event Action<CameraFrame>? OnScreenDemonstrationFrameOfUserUpdated;
+    public event Action<UserModel>? OnUser_TurnedDemonstration_ON;
+    public event Action<UserModel>? OnUser_TurnedDemonstration_OFF;
+
+    //MESSAGES
     public event Action<MessageInfo>? OnMessageSent;
+
+
+
 
 
     public UdpComunicator(string host, int port, ILogger logger) : base(host, port, logger)
@@ -125,7 +139,6 @@ public class UdpComunicator : OneProcessServer
         pb.Write(OpCode.PARTICIPANT_JOINED_MEETING);
         pb.Write(userId);
         pb.Write(meetingCode);
-        log.LogSuccess($"Sending request that we have joined meeting. Meetingcode: {meetingCode}");
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
     public async Task SEND_USER_LEAVE_MEETING(int userId, string username)
@@ -139,6 +152,14 @@ public class UdpComunicator : OneProcessServer
 
 
 
+
+    public async Task SEND_USER_TURN_OFF_CAMERA(int userId)
+    {
+        using var pb = new PacketBuilder();
+        pb.Write(OpCode.PARTICIPANT_TURNED_CAMERA_OFF);
+        pb.Write(userId);
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+    }
 
 
 
@@ -166,7 +187,17 @@ public class UdpComunicator : OneProcessServer
                         var message = pr.ReadString();
                         OnErrorReceived?.Invoke(new(code, message));
                     }
-                    if (opCode == OpCode.CREATE_MEETING)
+                    else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_ON)
+                    {
+                        var userId = pr.ReadInt32();
+                        OnUser_TurnedCamera_ON?.Invoke(new(userId, string.Empty));
+                    }
+                    else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_OFF)
+                    {
+                        var userId = pr.ReadInt32();
+                        OnUser_TurnedCamera_OFF?.Invoke(new(userId, string.Empty));
+                    }
+                    else if (opCode == OpCode.CREATE_MEETING)
                     {
                         var id = pr.ReadInt32();
                         OnMeetingCreated?.Invoke(new(id));
@@ -181,7 +212,7 @@ public class UdpComunicator : OneProcessServer
                     else if(opCode == OpCode.PARTICIPANT_LEFT_MEETING)
                     {
                         var userInfo = pr.ReadUserInfo();
-                        OnUserLeftMeeting?.Invoke(new(userInfo.Id, userInfo.Username));
+                        OnUser_LeftMeeting?.Invoke(new(userInfo.Id, userInfo.Username));
                     }
                     else if(opCode == OpCode.CHANGE_USER_NAME)
                     {
@@ -197,7 +228,7 @@ public class UdpComunicator : OneProcessServer
                     {
                         var userId = pr.ReadInt32();
                         var userName = pr.ReadString();
-                        OnUserJoinedMeeting?.Invoke(new(userId, userName));
+                        OnUser_JoinedMeeting?.Invoke(new(userId, userName));
                     }
                     else if(opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
                     {
@@ -224,7 +255,7 @@ public class UdpComunicator : OneProcessServer
                         {
                             var image = frameBuilder.AsByteArray().AsBitmapImage();
                             log.LogWarning($"Received full camera frame!");
-                            OnCameraFrameUpdated?.Invoke(new (frameInfo.UserId, image));
+                            OnCameraFrameOfUserUpdated?.Invoke(new (frameInfo.UserId, image));
                         }
                     }
                 }

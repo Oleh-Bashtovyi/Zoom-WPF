@@ -6,17 +6,15 @@ namespace Zoom_UI.MVVM.ViewModels;
 public class MainViewModel : ViewModelBase
 {
 
-    private UdpComunicator _comunicator;
-    private ViewModelNavigator _navigator;
+    private ApplicationData _data;
 
-    public ViewModelBase? CurrentViewModel => _navigator.CurrentViewModel;
-
+    public ViewModelBase? CurrentViewModel => _data.Navigator.CurrentViewModel;
 
 
-    public MainViewModel(UdpComunicator comunicator, ViewModelNavigator navigator)
+
+    public MainViewModel(ApplicationData data)
     {
-        _comunicator = comunicator;
-        _navigator = navigator;
-        _navigator.OnCurrentViewModelChanged += () => OnPropertyChanged(nameof(CurrentViewModel));
+        _data = data;
+        _data.Navigator.OnCurrentViewModelChanged += () => OnPropertyChanged(nameof(CurrentViewModel));
     }
 }

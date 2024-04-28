@@ -8,10 +8,8 @@
              mc:Ignorable="d" 
              d:Background="White"
              d:DataContext="{d:DesignInstance vms:HomeViewModel}"
-             MinHeight="300"
-             MinWidth="500"
-             Height="600"
-             Width="900"
+             MinHeight="500"
+             MinWidth="800"
              d:DesignHeight="600" d:DesignWidth="900">
     
 

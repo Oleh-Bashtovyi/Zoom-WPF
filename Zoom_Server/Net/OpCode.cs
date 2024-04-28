@@ -6,6 +6,8 @@ public enum OpCode : byte
     //=============================
     NONE,
     ERROR,
+    SUCCESS,
+    ACTIVITY_TIMEOUT_CHECKOUT,
     //Creation
     //=============================
     GET_USER_ID,
@@ -21,13 +23,23 @@ public enum OpCode : byte
     PARTICIPANT_LEFT_MEETING,
     //camera frame
     //=============================
+    PARTICIPANT_TURNED_CAMERA_ON,
+    PARTICIPANT_TURNED_CAMERA_OFF,
     PARTICIPANT_CAMERA_FRAME_CREATE,
     PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE,
+    //screen capture frame
+    //=============================
+    PARTICIPANT_TURNED_SCREEN_CAPTURE_ON,
+    PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF,
+    PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE,
+    PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE,
     //messages
     //=============================
     PARTICIPANT_MESSAGE_SENT_EVERYONE,
-    PARTICIPANT_MESSAGE_SENT_PRIVATE,
 }
+
+
+
 //=====================================================
 //CONNECTION TO SERVER:
 //client:

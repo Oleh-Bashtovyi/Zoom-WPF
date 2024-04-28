@@ -59,6 +59,11 @@ public class PacketReader : BinaryReader
         return (OpCode)ReadByte();
     }
 
+    public ErrorCode ReadErrorCode()
+    {
+        return (ErrorCode)ReadByte();
+    }
+
 
 
 

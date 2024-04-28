@@ -91,6 +91,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
     public ICommand SwitchCameraStateCommand { get; }
     public ICommand LeaveMeetingCommand {  get; }
     public ICommand ChangeThemeCommand {  get; }
+    public ICommand StartSharingScreenCommand {  get; }
     #endregion
 
     private WebCameraControl _webCamera;
@@ -114,6 +115,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         SwitchCameraStateCommand =    new RelayCommand(SwitchCameraState);
         SwitchMicrophonStateCommand = new RelayCommand(SwitchMicrophoneState);
         LeaveMeetingCommand =         new RelayCommand(LeaveMeeting);
+        StartSharingScreenCommand =   new RelayCommand(StartSharingScreen);
         SendMessageCommand =          new RelayCommand(SendMessage, () => !string.IsNullOrWhiteSpace(Message) && SelectedParticipant != null);
         #endregion
 
@@ -121,6 +123,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
         #region Initial_data
         CurrentUser = currentUser;
+        CurrentUser.IsCurrentUser = true;
         ParticipantsSelection.Add(_everyone);
         AddUserToCollections(CurrentUser);
         /*        AddUserToCollections(CurrentUser);
@@ -199,7 +202,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         {
             Task.Run(async () =>
             {
-                await _comunicator.SEND_LEAVE_MEETING(CurrentUser.Id, CurrentUser.Username);
+                await _comunicator.SEND_USER_LEAVE_MEETING(CurrentUser.Id, CurrentUser.Username);
             });
         }
         catch (Exception)
@@ -211,11 +214,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
     private void SendMessage()
     {
-        Task.Run(() => _comunicator.SEND_MESSAGE_EVERYONE(CurrentUser.Id, SelectedParticipant?.Id ?? -1, Message));
+        Task.Run(() => _comunicator.SEND_MESSAGE(CurrentUser.Id, SelectedParticipant?.Id ?? -1, Message));
     }
 
 
+    private void StartSharingScreen()
+    {
 
+    }
 
 
 
@@ -247,9 +253,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
 
                         if (frame != null)
                         {
-                            await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, frame);
+                            //await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, frame);
                             //CurrentUser.CameraImage = frame.AsBitmapImage();
-                            //ScreenDemonstrationImage = frame.AsBitmapImage();
+                            ScreenDemonstrationImage = frame.AsBitmapImage();
                         }
                     }
                 });
@@ -424,14 +430,24 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
     }
 
 
+    private void OnErrorReceived(ErrorModel model)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            MessageBox.Show(model.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        });
+    }
+
+
     void ISeverEventSubsribable.Subscribe()
     {
         _comunicator.OnUserJoinedMeeting += OnUserJoinedMeeting;
         _comunicator.OnUserLeftMeeting += OnUserLeftMeeting;
         _comunicator.OnCameraFrameUpdated += OnUSerFrameUpdated;
         _comunicator.OnMessageSent += OnMessagereceived;
+        _comunicator.OnErrorReceived += OnErrorReceived;
 
-        Task.Run(async() => await _comunicator.Send_JoinedMeeting(CurrentUser.Id, _meetingId));
+        Task.Run(async() => await _comunicator.SEND_USER_JOINED_MEETING(CurrentUser.Id, _meetingId));
     }
 
 
@@ -442,6 +458,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable
         _comunicator.OnUserLeftMeeting -= OnUserLeftMeeting;
         _comunicator.OnCameraFrameUpdated -= OnUSerFrameUpdated;
         _comunicator.OnMessageSent -= OnMessagereceived;
+        _comunicator.OnErrorReceived -= OnErrorReceived;
     }
 }
 

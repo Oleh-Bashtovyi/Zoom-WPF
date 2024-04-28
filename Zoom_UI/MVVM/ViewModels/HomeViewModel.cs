@@ -53,6 +53,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         _navigator = navigator;
 
         CurrentUser = new();
+        CurrentUser.IsCurrentUser = true;
 
         ChangeNameCommand = new RelayCommand(
             () => Task.Run(async () => await _comunicator.SEND_CHANGE_NAME(CurrentUser.Id, UsernameChangeField)),
@@ -71,7 +72,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             { 
                 if(int.TryParse(MeetingCodeToJoin, out int code))
                 {
-                    await _comunicator.Send_JoinUsingMeetingUsingCode(code); 
+                    await _comunicator.SEND_JOIN_MEETING_USING_CODE(code); 
                 }
             }),
             () => IsConnected && !string.IsNullOrWhiteSpace(MeetingCodeToJoin)

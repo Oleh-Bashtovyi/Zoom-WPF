@@ -64,12 +64,13 @@ namespace Zoom_UI.MVVM.Views
         private void UserControl_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // Update the MainWindow size
-/*            Window mainWindow = Window.GetWindow(this);
+            Window mainWindow = Window.GetWindow(this);
+
             if (mainWindow != null)
             {
-                mainWindow.MinWidth = e.NewSize.Width + 30;
-                mainWindow.MinHeight = e.NewSize.Height + 30;
-            }*/
+                mainWindow.MinWidth = MinWidth + 30;
+                mainWindow.MinHeight = MinHeight + 30;
+            }
         }
     }
 }

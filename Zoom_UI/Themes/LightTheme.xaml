@@ -3,6 +3,7 @@
 
     <SolidColorBrush x:Key="MainBrush" Color="LightYellow"/>
     <SolidColorBrush x:Key="MainFontBrush" Color="Black"/>
+    <SolidColorBrush x:Key="CurrentUserBackgroundBrush" Color="#FCD371"/>
     <SolidColorBrush x:Key="SecondaryBrush" Color="White"/>
     <SolidColorBrush x:Key="SecondaryFontBrush" Color="#4C4B4B"/>
     <SolidColorBrush x:Key="InformativeBrush" Color="#00E400"/>

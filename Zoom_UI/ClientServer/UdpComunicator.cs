@@ -23,10 +23,23 @@ public class UdpComunicator : OneProcessServer
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
 
+    /// <summary>
+    /// Event that appear when user successfuly created on server and received from server;
+    /// </summary>
     public event Action<UserModel>? OnUserCreated;
+
+    /// <summary>
+    /// Event invokes when name successfuly renamed and new user info received from server;
+    /// </summary>
     public event Action<UserModel>? OnUserChangedName;
-    public event Action<UserModel>? OnUserReceivedId;
-    public event Action<ErrorModel>? OnError;
+    /// <summary>
+    /// Event invokes when comunicator recieves requested user id from server;
+    /// </summary>
+    public event Action<UserModel>? OnUserIdReceived;
+    /// <summary>
+    /// Event invokes whaen comunicator receives error from server;
+    /// </summary>
+    public event Action<ErrorModel>? OnErrorReceived;
 
     public event Action<MeetingInfo>? OnMeetingCreated;
     public event Action<MeetingInfo>? OnUserJoinedMeeting_UsingCode;
@@ -49,28 +62,23 @@ public class UdpComunicator : OneProcessServer
 
     public async Task SEND_CREATE_USER(string username)
     {
-        log.LogSuccess($"Sending request for user creation! Username: {username}");
         using var pb = new PacketBuilder();
         pb.Write(OpCode.CREATE_USER);
         pb.Write(username);
-        log.LogSuccess($"Sending request for user creation! Username: {username}");
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
-
     public async Task SEND_CHANGE_NAME(int userId, string newUSername)
     {
         using var pb = new PacketBuilder();
         pb.Write(OpCode.CHANGE_USER_NAME);
-        pb.Write_UserInfo(userId, newUSername);
+        pb.Write(userId);
+        pb.Write(newUSername);
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
-
-
     public async Task SEND_CREATE_MEETING()
     {
         await _comunicator.SendAsync(OpCode.CREATE_MEETING.AsArray(), _serverEndPoint);
     }
-
     public async Task SEND_CAMERA_FRAME(int fromUser_id, Bitmap bitmap)
     {
         var bytes = bitmap.AsByteArray();
@@ -94,8 +102,7 @@ public class UdpComunicator : OneProcessServer
             await Task.Delay(5);
         }
     }
-
-    public async Task SEND_MESSAGE_EVERYONE(int fromUserId, int toUserId, string message)
+    public async Task SEND_MESSAGE(int fromUserId, int toUserId, string message)
     {
         using var pb = new PacketBuilder();
         pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);
@@ -104,9 +111,7 @@ public class UdpComunicator : OneProcessServer
         pb.Write(message);
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
-
-
-    public async Task Send_JoinUsingMeetingUsingCode(int meetingCode)
+    public async Task SEND_JOIN_MEETING_USING_CODE(int meetingCode)
     {
         using var pb = new PacketBuilder();
         pb.Write(OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
@@ -114,9 +119,7 @@ public class UdpComunicator : OneProcessServer
         log.LogSuccess($"Sending request for meeting joining. Meetingcode: {meetingCode}");
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
-
-
-    public async Task Send_JoinedMeeting(int userId, int meetingCode)
+    public async Task SEND_USER_JOINED_MEETING(int userId, int meetingCode)
     {
         using var pb = new PacketBuilder();
         pb.Write(OpCode.PARTICIPANT_JOINED_MEETING);
@@ -125,15 +128,18 @@ public class UdpComunicator : OneProcessServer
         log.LogSuccess($"Sending request that we have joined meeting. Meetingcode: {meetingCode}");
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
-
-
-    public async Task SEND_LEAVE_MEETING(int userId, string username)
+    public async Task SEND_USER_LEAVE_MEETING(int userId, string username)
     {
         using var pb = new PacketBuilder();
         pb.Write(OpCode.PARTICIPANT_LEFT_MEETING);
-        pb.Write_UserInfo(userId, username);
+        pb.Write(userId);
+        pb.Write(username);
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
+
+
+
+
 
 
 
@@ -154,6 +160,12 @@ public class UdpComunicator : OneProcessServer
 
                     log.LogWarning($"Received op code: {opCode}");
 
+                    if(opCode == OpCode.ERROR)
+                    {
+                        var code = pr.ReadErrorCode();
+                        var message = pr.ReadString();
+                        OnErrorReceived?.Invoke(new(code, message));
+                    }
                     if (opCode == OpCode.CREATE_MEETING)
                     {
                         var id = pr.ReadInt32();

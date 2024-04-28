@@ -4,18 +4,16 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:viewmodel="clr-namespace:Zoom_UI.MVVM.ViewModels"
+             xmlns:views="clr-namespace:Zoom_UI.MVVM.Views"
              xmlns:converters="clr-namespace:Zoom_UI.MVVM.Converters"
              xmlns:local="clr-namespace:Zoom_UI.MVVM.Views"
              mc:Ignorable="d" 
-                          Loaded="UserControl_Loaded"
+             d:DataContext="{d:DesignInstance viewmodel:MeetingViewModel}"
+             Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
-       Background="{DynamicResource SecondaryBrush}"
-        d:DataContext="{d:DesignInstance viewmodel:MeetingViewModel}"
-       MinHeight="615" 
-       MinWidth="1060">
-    
-    
-    
+             Background="{DynamicResource SecondaryBrush}"
+             MinHeight="615" MinWidth="1060"
+             MaxWidth="1920" MaxHeight="1080">
     
     <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
@@ -28,7 +26,8 @@
             <ColumnDefinition Width="3*" MinWidth="320" MaxWidth="550"/>
         </Grid.ColumnDefinitions>
 
-        <GridSplitter Grid.Column="1" Grid.RowSpan="2" Width="5"  x:Name="GridSpliter" HorizontalAlignment="Stretch"/>
+        <GridSplitter Grid.Column="1" Grid.RowSpan="2" x:Name="GridSpliter" 
+                      Width="5" HorizontalAlignment="Stretch"/>
 
 
         <Border Padding="5" 
@@ -44,23 +43,20 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
+                <!--GRID OF PARTICIPANTS-->
                 <ScrollViewer DockPanel.Dock="Top">
                     <ScrollViewer.Resources>
                         <Style TargetType="ScrollViewer">
                             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
-                            <Setter Property="VerticalScrollBarVisibility" Value="Visible" />
+                            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsDemonstrationActive}" Value="True">
-                                    <Setter Property="HorizontalScrollBarVisibility" Value="Visible" />
+                                    <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
                                     <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </ScrollViewer.Resources>
-                
-                
-                
-                
                     <ItemsControl ItemsSource="{Binding Participants}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -69,47 +65,13 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Margin="5" BorderBrush="Black" BorderThickness="1">
-                                    <Border.Resources>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Width" Value="285"/>
-                                            <Setter Property="Height" Value="215"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
-                                                    <Setter Property="Width" Value="200" />
-                                                    <Setter Property="Height" Value="115"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Resources>
-
-
-                                    <Grid Background="{DynamicResource SecondaryBrush}">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*"/>
-                                            <RowDefinition Height="40"/>
-                                        </Grid.RowDefinitions>
-
-                                        <TextBlock FontWeight="Bold" FontSize="40" 
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource MainFontBrush}"
-                                                   Text="{Binding ShortName}"/>
-                                        <Image Margin="5" Source="{Binding CameraImage}"
-                                               RenderOptions.BitmapScalingMode="HighQuality"/>
-
-
-                                        <TextBlock Grid.Row="1"
-                                                   HorizontalAlignment="Center"
-                                                   Style="{DynamicResource DefaultTextBlock}"
-                                                   Text="{Binding Username}"/>
-                                    </Grid>
-                                </Border>
+                                <views:UserView/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
 
+                <!--SCREEN DEMONSTRATION-->
                 <Image Grid.Row="1" Source="{Binding ScreenDemonstrationImage}" Margin="5 10 5 5" DockPanel.Dock="Bottom"
                        RenderOptions.BitmapScalingMode="HighQuality">
                     <Image.Resources>
@@ -247,15 +209,18 @@
                     </Grid>
                 </TabItem>
 
-                <TabItem Header="WebCameras">
-                    <ComboBox ItemsSource="{Binding WebCameras}" HorizontalAlignment="Center"
+                <TabItem Header="WebCameras" FontSize="20">
+                    <ComboBox ItemsSource="{Binding WebCameras}" 
                               SelectedItem="{Binding SelectedWebCamDevice}"
-                              VerticalAlignment="Top" MinWidth="250">
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Top" 
+                              Margin="5 10 5 0"
+                              MinWidth="250">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Style="{StaticResource DefaultTextBlock}" 
-                             Foreground="Black"
-                                Text="{Binding Name}"/>
+                                           Text="{Binding Name}"
+                                           Foreground="Black"/>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
 
@@ -273,8 +238,9 @@
                                             Background="{DynamicResource SecondaryBrush}">
                                         <TextBox HorizontalAlignment="Left"
                                                  IsReadOnly="True"
-                                                   VerticalAlignment="Top"
-                                                   Text="{Binding Mode=OneWay}" Margin="0 15 0 0" TextWrapping="Wrap"/>
+                                                 VerticalAlignment="Top"
+                                                 Text="{Binding Mode=OneWay}"
+                                                 Margin="0 15 0 0" TextWrapping="Wrap"/>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -284,13 +250,11 @@
             </TabControl>
 
         </Border>
-        <Border Grid.Row="1" 
-                Margin="10" 
-                Style="{DynamicResource DefaultBorder}" 
-                Background="{DynamicResource MainBrush}">
-
+        <Border Style="{DynamicResource DefaultBorder}" 
+                Background="{DynamicResource MainBrush}"
+                Grid.Row="1" 
+                Margin="10">
             <DockPanel Background="Transparent">
-
                 <DockPanel.Resources>
                     <Style TargetType="{x:Type Image}">
                         <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
@@ -299,8 +263,6 @@
                 </DockPanel.Resources>
 
                 <!--MEETING CODE-->
-
-                <!--BUTTONS-->
                 <!--======================================================-->
                 <StackPanel Orientation="Horizontal" 
                             HorizontalAlignment="Left"
@@ -326,8 +288,11 @@
                     </Button>
                 </StackPanel>
 
+                <!--BUTTONS-->
                 <!--======================================================-->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" 
+                            VerticalAlignment="Center" 
+                            HorizontalAlignment="Center">
                     <!--MICROPHONE-->
                     <Button Command="{Binding SwitchMicrophonStateCommand}">
                         <Button.Resources>
@@ -367,6 +332,15 @@
                         </Button.Resources>
                         <Image Source="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToCameraImageConverter}}"/>
                     </Button>
+
+
+                    <!--SCREEN SHARE-->
+                    <Button Margin="10 0 0 0"
+                            Style="{StaticResource RoundButton}" 
+                            Command="{Binding StartSharingScreenCommand}"
+                            Background="{DynamicResource OnButton}">
+                        <Image Source="pack://siteoforigin:,,,/Assets/share_screen.png"/>
+                    </Button>
                     <!--MESSAGES-->
                     <Button Margin="10 0 0 0"
                             x:Name="MessagesSectionButton"
@@ -377,13 +351,13 @@
                     </Button>
                     <!--THEMES-->
                     <Button Margin="10 0 0 0"
-                        Style="{StaticResource RoundButton}" 
-                        Command="{Binding ChangeThemeCommand}"
-                        Background="{DynamicResource OnButton}">
+                            Style="{StaticResource RoundButton}" 
+                            Command="{Binding ChangeThemeCommand}"
+                            Background="{DynamicResource OnButton}">
                         <Image Source="{Binding CurrentTheme, Converter={StaticResource ThemeToImageConverter}}"/>
                     </Button>
                     <!--LEAVE-->
-                    <Button Margin="80 0 0 0"
+                    <Button Margin="50 0 0 0"
                             Style="{StaticResource RoundButton}" 
                             Command="{Binding LeaveMeetingCommand}"
                             Background="{DynamicResource OffButton}">

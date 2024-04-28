@@ -6,7 +6,7 @@
     <SolidColorBrush x:Key="WarningBrush" Color="Goldenrod"/>
     <SolidColorBrush x:Key="OffButton" Color="#D075FF"/>
     <SolidColorBrush x:Key="OnButton" Color="#5050B8"/>
-
+    <SolidColorBrush x:Key="CurrentUserBackgroundBrush" Color="#509DB8"/>
 
     <SolidColorBrush x:Key="MainFontBrush" Color="White"/>
     <SolidColorBrush x:Key="SecondaryFontBrush" Color="Silver"/>

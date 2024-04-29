@@ -13,6 +13,7 @@
                     <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
                     <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
                     <converters:ThemeToImageConverter x:Key="ThemeToImageConverter"/>
+                    <converters:BytesToSizeConverter x:Key="BytesToSizeConverter"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Name="ThemeResourceDictionary" Source="Themes/LightTheme.xaml"/>
                 <ResourceDictionary x:Name="UiElementsResourceDictionary" Source="Themes/UiElements.xaml"/>

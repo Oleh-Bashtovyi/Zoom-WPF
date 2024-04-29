@@ -33,18 +33,49 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock FontWeight="Bold" FontSize="40" 
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Foreground="{DynamicResource MainFontBrush}"
-                    Text="{Binding ShortName}"/>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
             
-            <Image Margin="5 3 5 0" 
+            <TextBlock Grid.ColumnSpan="2"
+                       FontWeight="Bold" FontSize="40" 
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource MainFontBrush}"
+                       Text="{Binding ShortName}"/>
+
+            <Image Grid.ColumnSpan="2"
+                   Margin="5 3 5 0" 
                    Visibility="{Binding IsCameraOn, Converter={StaticResource BoolToVisibilityConverter}}"
                    Source="{Binding CameraImage}"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
 
-            <TextBlock Grid.Row="1" 
+
+
+
+            <Image Grid.Row="1" Grid.Column="0" Margin="5 0 0 0">
+                <Image.Resources>
+                    <Style TargetType="Image">
+                        <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
+                        <Setter Property="Source" Value="pack://siteoforigin:,,,/Assets/cam_off.png"/>
+                        <Setter Property="Width" Value="25"/>
+                        <Setter Property="Height" Value="25"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCameraOn}" Value="True">
+                                <Setter Property="Source" Value="pack://siteoforigin:,,,/Assets/cam_on.png"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
+                                <Setter Property="Width" Value="15"/>
+                                <Setter Property="Height" Value="15"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Image.Resources>
+            </Image>
+            
+            
+            <TextBlock Grid.Row="1" Grid.Column="1"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        Margin="5 2"

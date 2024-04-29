@@ -10,6 +10,8 @@ using System.Drawing;
 using Zoom_UI.ClientServer;
 using System.Windows.Controls;
 using Zoom_Server.Net;
+using Microsoft.Win32;
+using System.IO;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -62,11 +64,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     public BitmapImage ScreenDemonstrationImage
     {
         get => _screenDemonstrationImage;
-        set
-        {
-            SetAndNotifyPropertyChanged(ref _screenDemonstrationImage, value);
-            OnPropertyChanged(nameof(IsDemonstrationActive));
-        }
+        set => SetAndNotifyPropertyChanged(ref _screenDemonstrationImage, value);
     }
     public WebCameraId SelectedWebCamDevice
     {
@@ -90,12 +88,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
     #region COMMANDS
     public ICommand SendMessageCommand { get; }
+    public ICommand SendFileCommand { get; }
     public ICommand CopyMeetingIdCommand { get; }
     public ICommand SwitchMicrophonStateCommand { get; }
     public ICommand SwitchCameraStateCommand { get; }
     public ICommand LeaveMeetingCommand {  get; }
     public ICommand ChangeThemeCommand {  get; }
     public ICommand StartSharingScreenCommand {  get; }
+    public ICommand DownloadFileCommand {  get; }
     #endregion
 
 
@@ -103,6 +103,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     public MeetingViewModel(ApplicationData data, MeetingInfo meeting)
     {
         #region Commands_initialization
+        SendFileCommand = new RelayCommand(SendFile, () => SelectedParticipant != null);
         SwitchCameraStateCommand =    new RelayCommand(SwitchCameraState);
         SwitchMicrophonStateCommand = new RelayCommand(SwitchMicrophoneState);
         LeaveMeetingCommand =         new RelayCommand(LeaveMeeting);
@@ -114,19 +115,39 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         SendMessageCommand =          new RelayCommand(
             () => SendMessage(), 
             () => !string.IsNullOrWhiteSpace(Message) && SelectedParticipant != null);
+
+
         #endregion
 
         #region Initial_data
         _applicationData = data;
         CurrentUser = data.CurrentUser;
         ParticipantsSelection.Add(_everyone);
-        AddUserToCollections(CurrentUser);
+        Participants.Add(CurrentUser);
         SelectedParticipant = _everyone;
         _navigator = data.Navigator;
         _comunicator = data.Comunicator;
         _meetingId = meeting.Id;
         _webCamera = data.WebCamera;
         _screenCaptureManager = data.ScreenCaptureManager;
+
+        ParticipantsMessages.Add(new MessageModel()
+        {
+            From = "TEMP",
+            To = "YOU",
+            Content = new FIleModel() { FileName = "This_is_very_loooong_file_file_nafdsfsdfdsfdsfdsfsme.png"},
+            When = DateTime.Now
+        });
+
+        ParticipantsMessages.Add(new MessageModel()
+        {
+            From = "TEMP",
+            To = "YOU",
+            Content ="String message received!",
+            When = DateTime.Now
+        });
+
+        DownloadFileCommand = new FileRelayCommand(DownloadFile);
 
         Application.Current.Dispatcher.Invoke(() =>
         {
@@ -139,6 +160,41 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         #endregion
     }
 
+
+
+
+    private string? PathOfFileThatMustBeSent;
+
+
+    private void DownloadFile(FIleModel file)
+    {
+        var openFolderDialog = new OpenFolderDialog();
+
+        openFolderDialog.Title = "Select path to save file";
+
+        if (openFolderDialog.ShowDialog() ?? false)
+        {
+            var savePath = Path.Combine(openFolderDialog.FolderName, file.FileName);
+
+            File.WriteAllBytes(savePath, file.Data);
+        }
+    }
+
+
+    private void SendFile()
+    {
+        var openFileDialog = new OpenFileDialog();
+
+        openFileDialog.Title = "Select file to send";
+
+        if (openFileDialog.ShowDialog() ?? false)
+        {
+            if(openFileDialog.FileName != null)
+            {
+                Task.Run(async () => await _comunicator.SEND_FILE(CurrentUser.Id, SelectedParticipant.Id, openFileDialog.FileName));
+            }
+        }
+    }
 
 
     private void LeaveMeeting()
@@ -200,26 +256,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
     private void StartSharingScreen()
     {
-        Task.Run(async() => await _comunicator.SEND_REQUEST_FOR_SCREEN_DEMONSTRATION(CurrentUser.Id));
-/*        try
+        if (IsDemonstrationActive)
         {
-            if (IsDemonstrationActive)
-            {
-                _screenCaptureManager.StopCapturing();
-            }
-            else
-            {
-                _screenCaptureManager.StartCapturing( 20);
-            }
+            _screenCaptureManager.StopCapturing();
         }
-        catch (Exception ex)
+        else
         {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                MessageBox.Show(ex.Message);
-                ErrorsList.Add(ex.Message);
-            });
-        }*/
+            Task.Run(async() => await _comunicator.SEND_REQUEST_FOR_SCREEN_DEMONSTRATION(CurrentUser.Id));
+        }
     }
 
 
@@ -231,7 +275,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
 
-    private void AddNewMessage(UserViewModel from, UserViewModel to, string content)
+    private void AddNewMessage(UserViewModel from, UserViewModel to, object content)
     {
         var message = new MessageModel();
         message.Content = content;
@@ -420,6 +464,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             IsDemonstrationActive = false;
+            ErrorsList.Add("Recived command from comunicator to stop demostrating!");
         });
     }
     private void Comunicator_OnScreenFrameReceived(ImageFrame frame)
@@ -437,25 +482,23 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             IsDemonstrationActive = true;
         });
     }
+
     private void ScreenCaptureManager_OnCaptureFinished()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             IsDemonstrationActive = false;
+            ErrorsList.Add("Screen capture manager finished capture process!");
+            Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_DEMONSTRATION(CurrentUser.Id));
         });
     }
+
     private void ScreenCaptureManager_OnFrameCaptured(Bitmap? bitmap)
     {
         if(bitmap != null)
         {
             Task.Run(async () => await _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000)));
         }
-
-/*        Application.Current.Dispatcher.Invoke(() =>
-        {
-            //ScreenDemonstrationImage = bitmap?.AsBitmapImage();
-            
-        });*/
     }
 
 
@@ -505,6 +548,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             });
         }
     }
+
+
+
 
 
 
@@ -582,9 +628,11 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     public void Dispose()
     {
         var vm = this as ISeverEventSubsribable;
+        _webCamera.StopCapturing();
+        _screenCaptureManager.StopCapturing();
+
         vm.Unsubscribe();
 
-        CameraTokenSource?.Dispose();
 
         Task.Run(async () => await _applicationData.Comunicator.SEND_USER_LEAVE_MEETING(CurrentUser.Id, CurrentUser.Username));
     }

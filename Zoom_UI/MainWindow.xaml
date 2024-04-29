@@ -23,9 +23,8 @@
             </DataTemplate>
         </Grid.Resources>
 
-        <ContentControl 
+        <ContentControl Content="{Binding CurrentViewModel}" 
                         HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        Content="{Binding CurrentViewModel}" />
+                        VerticalAlignment="Stretch"/>
     </Grid>
 </Window>

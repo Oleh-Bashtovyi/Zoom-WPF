@@ -12,12 +12,22 @@ namespace Zoom_UI.ClientServer;
 
 public class UdpComunicator : OneProcessServer
 {
+    public class FileBuilder
+    {
+        public FrameBuilder FrameBuilder { get; set; }
+        public string FileName { get; set; }
+        public int FromUserId {  get; set; }
+        public int ToUserId { get; set; }
+    }
+
+
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
-
-
+    private Dictionary<int, FileBuilder> USer_FileBuilder = new();
     private FrameBuilder _screenCaptureBuilder = new(0);
+
+
 
     //GENERAL
     public event Action<UserModel>? OnUserCreated;
@@ -42,7 +52,6 @@ public class UdpComunicator : OneProcessServer
     public event Action<UserModel>? OnUser_TurnedDemonstration_OFF;
     //MESSAGES
     public event Action<MessageInfo>? OnMessageSent;
-
 
 
 
@@ -149,7 +158,7 @@ public class UdpComunicator : OneProcessServer
         var bytes = bitmap.AsByteArray();
         var clusters = bytes.AsClusters(32768);
         using var pw = new PacketBuilder();
-        pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE);
+        pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME);
         pw.Write(userId);
         pw.Write(clusters.Count);
         var data = pw.ToArray();
@@ -160,7 +169,7 @@ public class UdpComunicator : OneProcessServer
         {
             var cluster = clusters[i];
             pw.Clear();
-            pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE);
+            pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME);
             pw.Write_UserFrame(userId, i, cluster);
             data = pw.ToArray();
             await _comunicator.SendAsync(data, _serverEndPoint);
@@ -173,7 +182,13 @@ public class UdpComunicator : OneProcessServer
 
 
 
-
+    public async Task SEND_USER_TURN_OFF_DEMONSTRATION(int userId)
+    {
+        using var pb = new PacketBuilder();
+        pb.Write(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF);
+        pb.Write(userId);
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+    }
 
 
 
@@ -184,6 +199,37 @@ public class UdpComunicator : OneProcessServer
         pb.Write(userId);
         await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
     }
+
+
+
+    public async Task SEND_FILE(int fromUserId, int toUserId, string filePath)
+    {
+        var clusters = File.ReadAllBytes(filePath).AsClusters(32768);
+        using var pw = new PacketBuilder();
+        pw.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE);
+        pw.Write(fromUserId);
+        pw.Write(toUserId);
+        pw.Write(clusters.Count);
+        pw.Write(Path.GetFileName(filePath));
+        var data = pw.ToArray();
+        await _comunicator.SendAsync(data, _serverEndPoint);
+        await Task.Delay(25);
+
+        for (int i = 0; i < clusters.Count; i++)
+        {
+            var cluster = clusters[i];
+            pw.Clear();
+            pw.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE);
+            pw.Write_UserFrame(fromUserId, i, cluster);
+            data = pw.ToArray();
+            await _comunicator.SendAsync(data, _serverEndPoint);
+            await Task.Delay(5);
+        }
+    }
+
+
+
+
 
 
 
@@ -217,6 +263,51 @@ public class UdpComunicator : OneProcessServer
                         var message = pr.ReadString();
                         OnSuccessReceived?.Invoke(new(code, message));
                     }
+
+
+
+                    else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
+                    {
+                        var fromUser = pr.ReadInt32();
+                        var toUser = pr.ReadInt32();
+                        var numberOfClusters = pr.ReadInt32();
+                        var fileName = pr.ReadString();
+
+
+                        var fileBuilder = new FileBuilder();
+                        fileBuilder.FileName = fileName;
+                        fileBuilder.ToUserId = toUser;
+                        fileBuilder.FromUserId = fromUser;
+                        fileBuilder.FrameBuilder = new(numberOfClusters);
+                        USer_FileBuilder[fromUser] = fileBuilder;
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
+                    {
+                        var frameData = pr.ReadUserFrame();
+                        var frames = USer_FileBuilder.GetValueOrDefault(frameData.UserId);
+
+                        if (frames != null)
+                        {
+                            frames.FrameBuilder.AddFrame(frameData.Position, frameData.Data);
+
+                            if (frames.FrameBuilder.IsFull)
+                            {
+                                var content = new FIleModel()
+                                {
+                                    FileName = frames.FileName,
+                                    Data = frames.FrameBuilder.AsByteArray()
+                                };
+                                var mes = new MessageInfo(frames.FromUserId, frames.ToUserId, content);
+
+                                OnMessageSent?.Invoke(mes);
+                            }
+                        }
+                    }
+
+
+
+
+
                     else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_ON)
                     {
                         var userId = pr.ReadInt32();
@@ -232,14 +323,14 @@ public class UdpComunicator : OneProcessServer
                         var userId = pr.ReadInt32();
                         OnUser_TurnedDemonstration_OFF?.Invoke(new(userId, string.Empty));
                     }
-                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE)
+                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME)
                     {
                         var userId = pr.ReadInt32();
                         var framesCount = pr.ReadInt32();
                         log.LogWarning($"Received command to create screen frame! user:{userId}  clusters:{framesCount}");
                         _screenCaptureBuilder = new FrameBuilder(framesCount);
                     }
-                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE)
+                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME)
                     {
                         var frameInfo = pr.ReadUserFrame();
                         log.LogWarning($"Recived camera frame cluster! position{frameInfo.Position}, userId:{frameInfo.UserId}");

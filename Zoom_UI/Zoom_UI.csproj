@@ -17,6 +17,8 @@
     <None Remove="Assets\cam_on.png" />
     <None Remove="Assets\copy.png" />
     <None Remove="Assets\day.png" />
+    <None Remove="Assets\download.png" />
+    <None Remove="Assets\file.png" />
     <None Remove="Assets\ggg.png" />
     <None Remove="Assets\message.png" />
     <None Remove="Assets\mic_off.png" />
@@ -63,6 +65,12 @@
     </Resource>
     <Resource Include="Assets\day.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\download.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\file.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Assets\ggg.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

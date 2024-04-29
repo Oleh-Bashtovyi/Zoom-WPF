@@ -53,6 +53,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         _navigator = data.Navigator;
         CurrentUser = data.CurrentUser;
         CurrentUser.IsCurrentUser = true;
+        MeetingCodeToJoin = "1002";
 
 
         ChangeNameCommand = new RelayCommand(

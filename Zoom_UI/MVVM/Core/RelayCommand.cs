@@ -1,4 +1,5 @@
 ﻿using System.Windows.Input;
+using Zoom_UI.MVVM.Models;
 
 namespace Zoom_UI.MVVM.Core;
 
@@ -27,5 +28,28 @@ internal class RelayCommand : ICommand
     public void Execute(object? parameter)
     {
         _execute();
+    }
+}
+
+
+internal class FileRelayCommand : ICommand
+{
+    public event EventHandler? CanExecuteChanged;
+    private readonly Action<FIleModel> _execute; 
+
+
+    public FileRelayCommand(Action<FIleModel> execute)
+    {
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute)); ;
+    }
+
+    public bool CanExecute(object? parameter)
+    {
+        return parameter is FIleModel;
+    }
+
+    public void Execute(object? parameter)
+    {
+        _execute(parameter as FIleModel);
     }
 }

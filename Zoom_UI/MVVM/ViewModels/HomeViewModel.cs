@@ -13,7 +13,6 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 {
     private string _meetingCodeToJoin;
     private string _usernameChangeField;
-    private WebCameraControl _webCamera;
     private UserViewModel _currentUser;
     private UdpComunicator _comunicator;
     private ViewModelNavigator _navigator;
@@ -50,7 +49,6 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     public HomeViewModel(ApplicationData data)
     {
         _applicationData = data;
-        _webCamera = data.WebCamera;
         _comunicator = data.Comunicator;
         _navigator = data.Navigator;
         CurrentUser = data.CurrentUser;

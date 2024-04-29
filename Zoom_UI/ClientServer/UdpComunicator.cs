@@ -1,19 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
+﻿using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using Zoom_Server.Extensions;
 using Zoom_Server.Logging;
 using Zoom_Server.Net;
 using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Models;
-using static Zoom_Server.Net.PacketReader;
 
 namespace Zoom_UI.ClientServer;
 
@@ -23,41 +16,30 @@ public class UdpComunicator : OneProcessServer
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
 
-    /// <summary>
-    /// Event that appear when user successfuly created on server and received from server;
-    /// </summary>
+
+    private FrameBuilder _screenCaptureBuilder = new(0);
+
+    //GENERAL
     public event Action<UserModel>? OnUserCreated;
-
-    /// <summary>
-    /// Event invokes when name successfuly renamed and new user info received from server;
-    /// </summary>
     public event Action<UserModel>? OnUserChangedName;
-    /// <summary>
-    /// Event invokes when comunicator recieves requested user id from server;
-    /// </summary>
     public event Action<UserModel>? OnUserIdReceived;
-    /// <summary>
-    /// Event invokes whaen comunicator receives error from server;
-    /// </summary>
+    //RESPONSE
     public event Action<ErrorModel>? OnErrorReceived;
-
+    public event Action<SuccessModel>? OnSuccessReceived;
+    //MEETING CREATION
     public event Action<MeetingInfo>? OnMeetingCreated;
     public event Action<MeetingInfo>? OnUserJoinedMeeting_UsingCode;
-
     //PARTICIPATING
     public event Action<UserModel>? OnUser_JoinedMeeting;
     public event Action<UserModel>? OnUser_LeftMeeting;
-
     //CAMERA IMAGE
-    public event Action<CameraFrame>? OnCameraFrameOfUserUpdated;
+    public event Action<ImageFrame>? OnCameraFrameOfUserUpdated;
     public event Action<UserModel>? OnUser_TurnedCamera_ON;
     public event Action<UserModel>? OnUser_TurnedCamera_OFF;
-
     //SCREEN SHARE
-    public event Action<CameraFrame>? OnScreenDemonstrationFrameOfUserUpdated;
+    public event Action<ImageFrame>? OnScreenDemonstrationFrameOfUserUpdated;
     public event Action<UserModel>? OnUser_TurnedDemonstration_ON;
     public event Action<UserModel>? OnUser_TurnedDemonstration_OFF;
-
     //MESSAGES
     public event Action<MessageInfo>? OnMessageSent;
 
@@ -152,6 +134,48 @@ public class UdpComunicator : OneProcessServer
 
 
 
+    public async Task SEND_REQUEST_FOR_SCREEN_DEMONSTRATION(int userId)
+    {
+        using var pb = new PacketBuilder();
+        pb.Write(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON);
+        pb.Write(userId);
+        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+    }
+
+
+
+    public async Task SEND_SCREEN_IMAGE(int userId, Bitmap bitmap)
+    {
+        var bytes = bitmap.AsByteArray();
+        var clusters = bytes.AsClusters(32768);
+        using var pw = new PacketBuilder();
+        pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE);
+        pw.Write(userId);
+        pw.Write(clusters.Count);
+        var data = pw.ToArray();
+        await _comunicator.SendAsync(data, _serverEndPoint);
+        //await Task.Delay(25);
+
+        for (int i = 0; i < clusters.Count; i++)
+        {
+            var cluster = clusters[i];
+            pw.Clear();
+            pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE);
+            pw.Write_UserFrame(userId, i, cluster);
+            data = pw.ToArray();
+            await _comunicator.SendAsync(data, _serverEndPoint);
+            await Task.Delay(5);
+        }
+    }
+
+
+
+
+
+
+
+
+
 
     public async Task SEND_USER_TURN_OFF_CAMERA(int userId)
     {
@@ -187,11 +211,48 @@ public class UdpComunicator : OneProcessServer
                         var message = pr.ReadString();
                         OnErrorReceived?.Invoke(new(code, message));
                     }
+                    if (opCode == OpCode.SUCCESS)
+                    {
+                        var code = (ScsCode)pr.ReadByte();
+                        var message = pr.ReadString();
+                        OnSuccessReceived?.Invoke(new(code, message));
+                    }
                     else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_ON)
                     {
                         var userId = pr.ReadInt32();
                         OnUser_TurnedCamera_ON?.Invoke(new(userId, string.Empty));
                     }
+                    else if(opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
+                    {
+                        var userId = pr.ReadInt32();
+                        OnUser_TurnedDemonstration_ON?.Invoke(new(userId, string.Empty));
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF)
+                    {
+                        var userId = pr.ReadInt32();
+                        OnUser_TurnedDemonstration_OFF?.Invoke(new(userId, string.Empty));
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE)
+                    {
+                        var userId = pr.ReadInt32();
+                        var framesCount = pr.ReadInt32();
+                        log.LogWarning($"Received command to create screen frame! user:{userId}  clusters:{framesCount}");
+                        _screenCaptureBuilder = new FrameBuilder(framesCount);
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE)
+                    {
+                        var frameInfo = pr.ReadUserFrame();
+                        log.LogWarning($"Recived camera frame cluster! position{frameInfo.Position}, userId:{frameInfo.UserId}");
+                        _screenCaptureBuilder.AddFrame(frameInfo.Position, frameInfo.Data);
+
+                        if (_screenCaptureBuilder.IsFull)
+                        {
+                            var image = _screenCaptureBuilder.AsByteArray().AsBitmapImage();
+                            log.LogWarning($"Received full camera frame!");
+                            OnScreenDemonstrationFrameOfUserUpdated?.Invoke(new(frameInfo.UserId, image));
+                        }
+                    }
+
                     else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_OFF)
                     {
                         var userId = pr.ReadInt32();

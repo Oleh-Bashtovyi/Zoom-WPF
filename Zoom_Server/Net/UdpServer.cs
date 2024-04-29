@@ -14,8 +14,23 @@ internal class UdpServer : OneProcessServer
     //Collections
     private HashSet<int> MeetingsIds { get; } = new();
     private List<Client> Clients { get; } = new();
+    private Dictionary<int, UserScreenCapture> Meeting_ScreenCapture { get; } = new();
     private Dictionary<int, FrameBuilder> User_CameraFrame { get; } = new();
 
+
+
+    private class UserScreenCapture
+    {
+        public int UserId { get; set; }
+        public FrameBuilder ScreenFrame { get; set; }
+
+
+        public UserScreenCapture(int userId, FrameBuilder screenFrame)
+        {
+            UserId = userId;
+            ScreenFrame = screenFrame;
+        }
+    }
 
 
 
@@ -196,6 +211,7 @@ internal class UdpServer : OneProcessServer
                 }
 
             }
+
             else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CREATE)
             {
                 //============================================================
@@ -270,13 +286,14 @@ internal class UdpServer : OneProcessServer
                         if(userMeeting >= 1)
                         {
                             var participants = Clients.Where(x => x.MeetingId == userMeeting);
-                            await BroadCastCameraFrameToParticipants(frameData.UserId, participants, frames, token);
+                            await BroadcastFrameToParticipants(
+                                OpCode.PARTICIPANT_CAMERA_FRAME_CREATE,
+                                OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE,
+                                frameData.UserId, participants, frames, token);
                         }
                     }
                 }
             }
-
-
             else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_OFF)
             {
                 var userId = pr.ReadInt32();
@@ -286,6 +303,109 @@ internal class UdpServer : OneProcessServer
                 {
                     using var pb = new PacketBuilder();
                     pb.Write(OpCode.PARTICIPANT_TURNED_CAMERA_OFF);
+                    pb.Write(client.Id);
+
+                    foreach (var participant in Clients.Where(x => x.MeetingId == client.MeetingId))
+                    {
+                        await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                    }
+                }
+            }
+
+
+            else if(opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
+            {
+                var userId = pr.ReadInt32();
+
+                var user = Clients.FirstOrDefault(x => x.Id == userId);
+
+                if(user != null && user.MeetingId > 0)
+                {
+                    var screenCapture = Meeting_ScreenCapture.GetValueOrDefault(user.MeetingId);
+
+                    if(screenCapture != null)
+                    {
+                        using var pb = new PacketBuilder();
+                        pb.Write(OpCode.ERROR);
+                        pb.Write((byte)ErrorCode.SCREEN_CAPTURE_DOES_NOT_ALLOWED);
+                        pb.Write("Screen capture is already taken!");
+                        await udpServer.SendAsync(pb.ToArray(), user.IPAddress, token);
+                    }
+                    else
+                    {
+                        Meeting_ScreenCapture[user.MeetingId] = new(user.Id, new(0));
+                        using var pb = new PacketBuilder();
+                        pb.Write(OpCode.SUCCESS);
+                        pb.Write((byte)ScsCode.SCREEN_DEMONSTRATION_ALLOWED);
+                        pb.Write("Screen can be taken!");
+                        await udpServer.SendAsync(pb.ToArray(), user.IPAddress, token);
+                    }
+                }
+            }
+            else if(opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE)
+            {
+                var userId = pr.ReadInt32();
+                var numberOfCusters = pr.ReadInt32();
+                var client = Clients.FirstOrDefault(x => x.Id == userId);
+
+                if (client != null && client.MeetingId > 0)
+                {
+                    Meeting_ScreenCapture[client.MeetingId] = new(userId, new(numberOfCusters));
+                    log.LogSuccess($"Screen Frame builder for user: {userId} created with clusters size: {numberOfCusters}");
+
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON);
+                    pb.Write(client.Id);
+
+                    foreach (var participant in Clients.Where(x => x.MeetingId == client.MeetingId))
+                    {
+                        await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                    }
+                }
+            }
+            else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE)
+            {
+                var frameData = pr.ReadUserFrame();
+                var user = Clients.FirstOrDefault(x => x.Id == frameData.UserId);
+                var screenFrame = Meeting_ScreenCapture.GetValueOrDefault(user?.MeetingId ?? -1);
+
+                if(screenFrame != null)
+                {
+                    var frames = screenFrame.ScreenFrame;
+
+                    if (frames != null)
+                    {
+                        frames.AddFrame(frameData.Position, frameData.Data);
+
+                        if (frames.IsFull)
+                        {
+                            log.LogSuccess("All frame received!");
+
+                            var userMeeting = Clients.FirstOrDefault(x => x.Id == frameData.UserId)?.MeetingId ?? -1;
+
+                            if (userMeeting >= 1)
+                            {
+                                var participants = Clients.Where(x => x.MeetingId == userMeeting);
+                                await BroadcastFrameToParticipants(
+                                    OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CREATE,
+                                    OpCode.PARTICIPANT_SCREEN_CAPTURE_FRAME_CLUESTER_UPDATE,
+                                    frameData.UserId, participants, frames, token);
+                            }
+                        }
+                    }
+                }                
+            }
+            else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF)
+            {
+                var userId = pr.ReadInt32();
+                var client = Clients.FirstOrDefault(x => x.Id == userId);
+
+                if (client != null && client.MeetingId > 0 && Meeting_ScreenCapture.GetValueOrDefault(client.MeetingId)?.UserId == userId)
+                {
+                    Meeting_ScreenCapture.Remove(client.MeetingId);
+
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF);
                     pb.Write(client.Id);
 
                     foreach (var participant in Clients.Where(x => x.MeetingId == client.MeetingId))
@@ -341,6 +461,9 @@ internal class UdpServer : OneProcessServer
         }
     }
 
+
+
+
     private async Task BroadCastParticipantJoin(int meetingId, CancellationToken token)
     {
         var participants = Clients.Where(x => x.MeetingId == meetingId);
@@ -363,7 +486,13 @@ internal class UdpServer : OneProcessServer
 
 
 
-    private async Task BroadCastCameraFrameToParticipants(int userId, IEnumerable<Client> participants, FrameBuilder builder, CancellationToken token)
+    private async Task BroadcastFrameToParticipants(
+        OpCode FRMAE_CREATE_CODE,
+        OpCode FRAME_UPDATE_CODE,
+        int userId,
+        IEnumerable<Client> participants, 
+        FrameBuilder builder, 
+        CancellationToken token)
     {
         var frames = builder.GetFrames();
         using var pb = new PacketBuilder();
@@ -372,7 +501,7 @@ internal class UdpServer : OneProcessServer
         foreach (var participant in participants)
         {
             pb.Clear();
-            pb.Write(OpCode.PARTICIPANT_CAMERA_FRAME_CREATE.AsByte());
+            pb.Write(FRMAE_CREATE_CODE);
             pb.Write(userId);
             pb.Write(frames.Count());
             await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
@@ -380,7 +509,7 @@ internal class UdpServer : OneProcessServer
             for (int i = 0; i < frames.Length; i++)
             {
                 pb.Clear();
-                pb.Write(OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE.AsByte());
+                pb.Write(FRAME_UPDATE_CODE);
                 pb.Write_UserFrame(userId, i, frames[i]);
                 await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
             }

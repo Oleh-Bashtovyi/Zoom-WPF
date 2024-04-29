@@ -40,6 +40,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -72,7 +73,26 @@
                 </ScrollViewer>
 
                 <!--SCREEN DEMONSTRATION-->
-                <Image Grid.Row="1" Source="{Binding ScreenDemonstrationImage}" Margin="5 10 5 5" DockPanel.Dock="Bottom"
+                <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Resources>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDemonstrationActive}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Resources>
+                     <Run Text="Demonstrated by: " FontSize="12"/>
+                     <Run FontWeight="SemiBold"
+                          Text="{Binding ScreenDemonstrator.Username}" FontSize="12"
+                          Foreground="{DynamicResource WarningBrush}"/>
+                </TextBlock>
+                
+                <Image Grid.Row="2" Source="{Binding ScreenDemonstrationImage}" 
+                       Margin="5 10 5 5" 
+                       DockPanel.Dock="Bottom"
                        RenderOptions.BitmapScalingMode="HighQuality">
                     <Image.Resources>
                         <Style TargetType="Image">
@@ -89,6 +109,10 @@
         </Border>
         
 
+        
+        
+        
+        
         <Border Grid.Column="3" Grid.RowSpan="2" 
                 x:Name="MessagesContainer"
                 Margin="10"

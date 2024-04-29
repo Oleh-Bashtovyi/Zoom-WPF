@@ -18,6 +18,8 @@ public partial class App : Application
     private readonly ThemeManager themeManager;
     private readonly UserViewModel currentUser;
     private readonly ApplicationData applicationData;
+    private readonly WebCameraCaptureManager cameraCaptureManager;
+    private readonly ScreenCaptureManager screenCaptureManager;
 
     private int _serverPort = 9999;
     private string _serverIP = "127.0.0.1";
@@ -29,8 +31,15 @@ public partial class App : Application
         webCamera = new WebCameraControl();
         themeManager = new ThemeManager();
         currentUser = new UserViewModel();
+        cameraCaptureManager = new WebCameraCaptureManager(webCamera);
+        screenCaptureManager = new ScreenCaptureManager(1080, 1920);
         currentUser.IsCurrentUser = true;
-        applicationData = new(comunicator, webCamera, themeManager, currentUser, viewModelNavigator);
+        applicationData = new(
+            comunicator, 
+            cameraCaptureManager, 
+            themeManager, currentUser, 
+            viewModelNavigator, 
+            screenCaptureManager);
     }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -38,6 +47,7 @@ public partial class App : Application
         var mainViewModel = new MainViewModel(applicationData);
         viewModelNavigator.CurrentViewModel = new HomeViewModel(applicationData);
         //viewModelNavigator.CurrentViewModel = new MeetingViewModel(applicationData, new(1));
+        currentUser.Username = "TEMP USERNAME~~~";
 
         MainWindow = new MainWindow()
         {

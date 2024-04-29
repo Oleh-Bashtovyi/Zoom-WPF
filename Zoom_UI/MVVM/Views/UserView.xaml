@@ -17,7 +17,7 @@
                 <Setter Property="Background" Value="{DynamicResource SecondaryBrush}"/>
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
-                        <Setter Property="Width" Value="200" />
+                        <Setter Property="Width" Value="160" />
                         <Setter Property="Height" Value="115"/>
                     </DataTrigger>
                     <DataTrigger Binding="{Binding IsCurrentUser}" Value="True">
@@ -30,7 +30,7 @@
         <Grid Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="40"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <TextBlock FontWeight="Bold" FontSize="40" 
@@ -38,15 +38,30 @@
                     VerticalAlignment="Center"
                     Foreground="{DynamicResource MainFontBrush}"
                     Text="{Binding ShortName}"/>
-            <Image Margin="5" 
+            
+            <Image Margin="5 3 5 0" 
                    Visibility="{Binding IsCameraOn, Converter={StaticResource BoolToVisibilityConverter}}"
                    Source="{Binding CameraImage}"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
 
-
-            <TextBlock Grid.Row="1" HorizontalAlignment="Center"
-                    Style="{DynamicResource DefaultTextBlock}"
-                    Text="{Binding Username}"/>
+            <TextBlock Grid.Row="1" 
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="5 2"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource MainFontBrush}"
+                       Text="{Binding Username}">
+                <TextBlock.Resources>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="FontSize" Value="26"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
+                                <Setter Property="FontSize" Value="14" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Resources>
+            </TextBlock>
         </Grid>
     </Border>
 </UserControl>

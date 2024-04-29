@@ -16,12 +16,7 @@ public partial class MainWindow : Window
     {
         if(DataContext is MainViewModel mvm)
         {
-            var curVm = mvm.CurrentViewModel;
-
-            if(curVm is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
+            mvm.Dispose();
         }
     }
 }

@@ -75,7 +75,7 @@
                          Margin="10 10 10 0"
                          IsReadOnly="True"
                          Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
-                         Text="{Binding UserId, Mode=OneWay}"
+                         Text="{Binding UserId, Mode=OneWay }"
                          Style="{StaticResource DefaultTextBox}" 
                          HorizontalAlignment="Stretch"/>
                 
@@ -94,12 +94,12 @@
                     Command="{Binding ChangeNameCommand}"/>
 
                 <Button DockPanel.Dock="Bottom"
-                    Margin="10 10 10 20" 
-                    FontSize="18" 
-                    Height="35"
-
-                    Command="{Binding ConnectToServerCommand}">
-                    <TextBlock Text="Connect" Style="{DynamicResource DefaultTextBlock}"/>
+                        Command="{Binding ConnectToServerCommand}"
+                        Margin="10 10 10 20" 
+                        FontSize="18" 
+                        Height="35">
+                    <TextBlock Text="Connect" 
+                               Style="{DynamicResource DefaultTextBlock}"/>
                 </Button>
 
 

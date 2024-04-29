@@ -12,22 +12,25 @@ namespace Zoom_UI.MVVM.Core;
 public class ApplicationData
 {
     public UdpComunicator Comunicator { get; }
-    public WebCameraControl WebCamera {  get; }
+    public WebCameraCaptureManager WebCamera {  get; }
+    public ScreenCaptureManager ScreenCaptureManager { get; }
     public ThemeManager ThemeManager { get; }
     public UserViewModel CurrentUser {  get; }
     public ViewModelNavigator Navigator { get; }
 
     public ApplicationData(
-        UdpComunicator comunicator, 
-        WebCameraControl webCamera, 
+        UdpComunicator comunicator,
+        WebCameraCaptureManager webCamera, 
         ThemeManager themeManager, 
         UserViewModel currentUser, 
-        ViewModelNavigator navigator)
+        ViewModelNavigator navigator,
+        ScreenCaptureManager screenCaptureManager)
     {
         Comunicator = comunicator;
         WebCamera = webCamera;
         ThemeManager = themeManager;
         CurrentUser = currentUser;
         Navigator = navigator;
+        ScreenCaptureManager = screenCaptureManager;
     }
 }

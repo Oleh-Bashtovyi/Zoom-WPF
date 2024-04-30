@@ -1,10 +1,10 @@
 ﻿using System.Windows;
 
-namespace Zoom_UI.MVVM.Core;
+namespace Zoom_UI.Managers;
 
 public class ThemeManager
 {
-    private int CurrentThemeIndex {  get; set; }
+    private int CurrentThemeIndex { get; set; }
     public string CurrentTheme => _themes[CurrentThemeIndex];
 
     private List<string> _themes = [
@@ -34,7 +34,7 @@ public class ThemeManager
         var oldTheme = Application.Current.Resources.MergedDictionaries
             .FirstOrDefault(d => d.Source?.OriginalString == $"Themes/{_themes[previous]}Theme.xaml");
 
-        if( oldTheme != null && newThemeDict != null)
+        if (oldTheme != null && newThemeDict != null)
         {
             Application.Current.Resources.MergedDictionaries.Remove(oldTheme);
             Application.Current.Resources.MergedDictionaries.Add(newThemeDict);
@@ -44,21 +44,21 @@ public class ThemeManager
 
 
 
-/*    private void ReplaceTheme(string newTheme)
-    {
-        var newThemeDict = new ResourceDictionary()
+    /*    private void ReplaceTheme(string newTheme)
         {
-            Source = new Uri($"Themes/{newTheme}.xaml", UriKind.Relative)
-        };
+            var newThemeDict = new ResourceDictionary()
+            {
+                Source = new Uri($"Themes/{newTheme}.xaml", UriKind.Relative)
+            };
 
 
-        ResourceDictionary oldTheme = Application.Current.Resources.MergedDictionaries
-            .FirstOrDefault(d => d.Source.OriginalString == "Themes/LightTheme.xaml");
+            ResourceDictionary oldTheme = Application.Current.Resources.MergedDictionaries
+                .FirstOrDefault(d => d.Source.OriginalString == "Themes/LightTheme.xaml");
 
-        if (oldTheme != null)
-        {
-            Application.Current.Resources.MergedDictionaries.Remove(oldTheme);
-        }
-        Application.Current.Resources.MergedDictionaries.Add(newThemeDict);
-    }*/
+            if (oldTheme != null)
+            {
+                Application.Current.Resources.MergedDictionaries.Remove(oldTheme);
+            }
+            Application.Current.Resources.MergedDictionaries.Add(newThemeDict);
+        }*/
 }

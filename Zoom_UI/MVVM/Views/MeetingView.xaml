@@ -210,22 +210,50 @@
                     </Grid>
                 </TabItem>
 
-                <TabItem Header="WebCameras" FontSize="20">
-                    <ComboBox ItemsSource="{Binding WebCameras}" 
+                <TabItem Header="Micro\Camera" FontSize="20">
+                    <StackPanel Margin="5" Orientation="Vertical">
+                        <TextBlock Style="{StaticResource DefaultTextBlock}"
+                                   Text="Sellected camera:"/>
+
+                        <ComboBox ItemsSource="{Binding WebCameras}" 
                               SelectedItem="{Binding SelectedWebCamDevice}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Top" 
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Top"
                               Margin="5 10 5 0"
                               MinWidth="250">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Style="{StaticResource DefaultTextBlock}" 
-                                           Text="{Binding Name}"
-                                           Foreground="Black"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border>
+                                        <TextBlock Style="{StaticResource DefaultTextBlock}" 
+                                                   Text="{Binding Name}"
+                                                   Foreground="Black"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
 
-                    </ComboBox>
+                        <TextBlock Style="{StaticResource DefaultTextBlock}"
+                                   Margin="5 10 5 0"
+                                   Text="Sellected microphone:"/>
+
+                        <ComboBox ItemsSource="{Binding AudioInputDevices}" 
+                                  SelectedIndex="{Binding SellectedAudioDeviceIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Top"
+                              Margin="5 10 5 0"
+                              MinWidth="250">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border>
+                                        <TextBlock Style="{StaticResource DefaultTextBlock}" 
+                                                   Text="{Binding ProductName}"
+                                                   Foreground="Black"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                  
                 </TabItem>
 
                 <TabItem Header="Errors" FontSize="20">

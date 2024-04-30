@@ -12,6 +12,10 @@ using System.Windows.Controls;
 using Zoom_Server.Net;
 using Microsoft.Win32;
 using System.IO;
+using Zoom_UI.Managers;
+using System.Windows.Media;
+using NAudio.Wave;
+using static Zoom_UI.ClientServer.UdpComunicator;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -32,7 +36,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private bool _isDemonstrationActive;
     private string _message;
     private int _meetingId;
-
+    private int _sellectedAudioDeviceIndex;
 
     #region PROPERTIES
     public string Message
@@ -76,6 +80,11 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         get => _isDemonstrationActive;
         set => SetAndNotifyPropertyChanged(ref _isDemonstrationActive, value);
     }
+    public int SellectedAudioDeviceIndex
+    {
+        get => _sellectedAudioDeviceIndex;
+        set => SetAndNotifyPropertyChanged(ref _sellectedAudioDeviceIndex, value);
+    }
     #endregion
 
     #region COLLECCTIONS
@@ -84,6 +93,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     public ObservableCollection<UserViewModel> ParticipantsSelection { get; } = new();
     public ObservableCollection<MessageModel> ParticipantsMessages { get; } = new();
     public ObservableCollection<WebCameraId> WebCameras { get; } = new();   
+    public ObservableCollection<WaveInCapabilities> AudioInputDevices { get; } = new();   
     #endregion
 
     #region COMMANDS
@@ -131,7 +141,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _webCamera = data.WebCamera;
         _screenCaptureManager = data.ScreenCaptureManager;
 
-        ParticipantsMessages.Add(new MessageModel()
+/*        ParticipantsMessages.Add(new MessageModel()
         {
             From = "TEMP",
             To = "YOU",
@@ -145,7 +155,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             To = "YOU",
             Content ="String message received!",
             When = DateTime.Now
-        });
+        });*/
 
         DownloadFileCommand = new FileRelayCommand(DownloadFile);
 
@@ -155,15 +165,29 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             {
                 WebCameras.Add(device);
             }
+            if(WebCameras.Count > 0)
+            {
+                SelectedWebCamDevice = WebCameras.First();
+            }
         });
-        SelectedWebCamDevice = WebCameras[0];
+
+        foreach(var device in _applicationData.MicrophoneCaptureManager.GetInputDevices())
+        {
+            AudioInputDevices.Add(device);
+        }
+        if(AudioInputDevices.Count > 0)
+        {
+            SellectedAudioDeviceIndex = 0;
+        }
+        waveProvider = new BufferedWaveProvider(_applicationData.MicrophoneCaptureManager.GetWaveFormat);
+        _waveOut.Init(waveProvider);
+        _waveOut.Play();
         #endregion
     }
 
+    private WaveOut _waveOut = new();
+    private BufferedWaveProvider waveProvider;
 
-
-
-    private string? PathOfFileThatMustBeSent;
 
 
     private void DownloadFile(FIleModel file)
@@ -225,7 +249,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
     private void SwitchMicrophoneState()
     {
-
+        if(_applicationData.MicrophoneCaptureManager.IsMicrophonTurnedOn)
+        {
+            _applicationData.MicrophoneCaptureManager.StopRecording();
+        }
+        else if (SellectedAudioDeviceIndex >= 0)
+        {
+            _applicationData.MicrophoneCaptureManager.StartRecording(SellectedAudioDeviceIndex);
+        }
     }
 
 
@@ -552,6 +583,62 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
 
+    private void MicrophonManager_CaptureStarted()
+    {
+        CurrentUser.IsMicrophoneOn = true;
+    }
+
+    private void MicrophonManager_SoundReceived(byte[] soundBytes)
+    {
+        //waveProvider.AddSamples(soundBytes, 0, soundBytes.Length);
+        Task.Run(async () => await _comunicator.SEND_AUDIO(CurrentUser.Id, soundBytes));
+    }
+
+
+    private void MicrophonManager_CaptureFinished()
+    {
+        CurrentUser.IsMicrophoneOn = false;
+    }
+
+
+    private void Comunicator_UserTurnedMicrophoneOn(UserModel model)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var user = Participants.FirstOrDefault(x => x.Id == model.Id);
+
+            if(user != null)
+            {
+                user.IsMicrophoneOn = true;
+            }
+        });
+    }
+
+    private void Comunicator_UserTurnedMicrophoneOff(UserModel model)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var user = Participants.FirstOrDefault(x => x.Id == model.Id);
+
+            if (user != null)
+            {
+                user.IsMicrophoneOn = false;
+            }
+        });
+    }
+
+    private void Comunicator_SoundReceived(AudioFrame audioFrame)
+    {
+        if(audioFrame.UserId == CurrentUser.Id)
+        {
+            return;
+        }
+
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            waveProvider.AddSamples(audioFrame.Data, 0, audioFrame.Data.Length);
+        });
+    }
 
 
 
@@ -591,6 +678,16 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnErrorReceived += OnErrorReceived;
         _comunicator.OnSuccessReceived += OnSuccessReceived;
         _applicationData.ThemeManager.OnThemeChanged += NotifyThemeChanged;
+        //audio
+        //===========================================================================
+        _applicationData.MicrophoneCaptureManager.OnSoundCaptured += MicrophonManager_SoundReceived;
+        _applicationData.MicrophoneCaptureManager.OnCaptureStarted += MicrophonManager_CaptureStarted;
+        _applicationData.MicrophoneCaptureManager.OnCaptureFinished += MicrophonManager_CaptureFinished;
+        _comunicator.OnUser_SentAudioFrame += Comunicator_SoundReceived;
+        _comunicator.OnUser_TurnedMicrophone_ON += Comunicator_UserTurnedMicrophoneOn;
+        _comunicator.OnUser_TurnedMicrophone_OFF += Comunicator_UserTurnedMicrophoneOff;
+
+
 
         Task.Run(async() => await _comunicator.SEND_USER_JOINED_MEETING(CurrentUser.Id, _meetingId));
     }
@@ -624,6 +721,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnErrorReceived -= OnErrorReceived;
         _comunicator.OnSuccessReceived -= OnSuccessReceived;
         _applicationData.ThemeManager.OnThemeChanged -= NotifyThemeChanged;
+        //audio
+        //===========================================================================
+        _applicationData.MicrophoneCaptureManager.OnSoundCaptured -= MicrophonManager_SoundReceived;
+        _applicationData.MicrophoneCaptureManager.OnCaptureStarted -= MicrophonManager_CaptureStarted;
+        _applicationData.MicrophoneCaptureManager.OnCaptureFinished -= MicrophonManager_CaptureFinished;
+        _comunicator.OnUser_SentAudioFrame -= Comunicator_SoundReceived;
+        _comunicator.OnUser_TurnedMicrophone_ON -= Comunicator_UserTurnedMicrophoneOn;
+        _comunicator.OnUser_TurnedMicrophone_OFF -= Comunicator_UserTurnedMicrophoneOff;
     }
     public void Dispose()
     {

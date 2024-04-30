@@ -21,10 +21,18 @@ public class UdpComunicator : OneProcessServer
     }
 
 
+    public class AudioFrame
+    {
+        public int UserId { get; set; }
+        public byte[] Data { get; set; }
+    }
+
+
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
-    private Dictionary<int, FileBuilder> USer_FileBuilder = new();
+    private Dictionary<int, FileBuilder> USer_FileBuilder { get; } = new();
+
     private FrameBuilder _screenCaptureBuilder = new(0);
 
 
@@ -52,6 +60,10 @@ public class UdpComunicator : OneProcessServer
     public event Action<UserModel>? OnUser_TurnedDemonstration_OFF;
     //MESSAGES
     public event Action<MessageInfo>? OnMessageSent;
+    //AUDION
+    public event Action<UserModel>? OnUser_TurnedMicrophone_ON;
+    public event Action<UserModel>? OnUser_TurnedMicrophone_OFF;
+    public event Action<AudioFrame>? OnUser_SentAudioFrame;
 
 
 
@@ -229,6 +241,15 @@ public class UdpComunicator : OneProcessServer
 
 
 
+    public async Task SEND_AUDIO(int fromUserId, byte[] data)
+    {
+        using var pw = new PacketBuilder();
+        pw.Write(OpCode.PARTICIPANT_SENT_AUDIO);
+        pw.Write(fromUserId);
+        pw.Write(data.Length);
+        pw.Write(data);
+        await _comunicator.SendAsync(pw.ToArray(), _serverEndPoint);
+    }
 
 
 
@@ -264,7 +285,13 @@ public class UdpComunicator : OneProcessServer
                         OnSuccessReceived?.Invoke(new(code, message));
                     }
 
-
+                    else if(opCode == OpCode.PARTICIPANT_SENT_AUDIO)
+                    {
+                        var userId = pr.ReadInt32();
+                        var length = pr.ReadInt32();
+                        var data = pr.ReadBytes(length);
+                        OnUser_SentAudioFrame?.Invoke(new() { UserId = userId, Data = data });
+                    }
 
                     else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
                     {

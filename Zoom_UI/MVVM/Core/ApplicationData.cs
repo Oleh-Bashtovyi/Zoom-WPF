@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using WebEye.Controls.Wpf;
 using Zoom_UI.ClientServer;
+using Zoom_UI.Managers;
+using Zoom_UI.Managersl;
 using Zoom_UI.MVVM.ViewModels;
 
 namespace Zoom_UI.MVVM.Core;
@@ -17,6 +19,7 @@ public class ApplicationData
     public ThemeManager ThemeManager { get; }
     public UserViewModel CurrentUser {  get; }
     public ViewModelNavigator Navigator { get; }
+    public MicrophoneCaptureManager MicrophoneCaptureManager { get; }
 
     public ApplicationData(
         UdpComunicator comunicator,
@@ -24,7 +27,8 @@ public class ApplicationData
         ThemeManager themeManager, 
         UserViewModel currentUser, 
         ViewModelNavigator navigator,
-        ScreenCaptureManager screenCaptureManager)
+        ScreenCaptureManager screenCaptureManager,
+        MicrophoneCaptureManager microphoneCaptureManager)
     {
         Comunicator = comunicator;
         WebCamera = webCamera;
@@ -32,5 +36,6 @@ public class ApplicationData
         CurrentUser = currentUser;
         Navigator = navigator;
         ScreenCaptureManager = screenCaptureManager;
+        MicrophoneCaptureManager = microphoneCaptureManager;
     }
 }

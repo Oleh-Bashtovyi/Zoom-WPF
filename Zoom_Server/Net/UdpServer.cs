@@ -121,6 +121,30 @@ internal class UdpServer : OneProcessServer
                 log.LogWarning($"Sending new user info: id:{client.Id} username:{client.Username}");
                 await udpServer.SendAsync(pb.ToArray(), asyncResult.RemoteEndPoint, token);
             }
+
+            else if(opCode == OpCode.PARTICIPANT_SENT_AUDIO)
+            {
+                var userId = pr.ReadInt32();    
+                var length = pr.ReadInt32();
+                var data = pr.ReadBytes(length);
+
+                var user = Clients.FirstOrDefault(x => x.Id == userId);
+
+                if(user != null && user.MeetingId > 0)
+                {
+                    using var pb = new PacketBuilder();
+                    pb.Write(OpCode.PARTICIPANT_SENT_AUDIO);
+                    pb.Write(userId);
+                    pb.Write(data.Length);
+                    pb.Write(data);
+
+                    foreach (var participant in Clients.Where(x => x.MeetingId == user.MeetingId))
+                    {
+                        await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                    }
+                }
+            }
+
             else if(opCode == OpCode.CHANGE_USER_NAME)
             {
                 var userInfo = pr.ReadUserInfo();
@@ -581,6 +605,7 @@ internal class UdpServer : OneProcessServer
                 pb.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE);
                 pb.Write_UserFrame(fileBuilder.FromUserId, i, frames[i]);
                 await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                log.LogSuccess($"Broadcasted frame: {i} to user: {participant.Id}");
             }
         }
     }

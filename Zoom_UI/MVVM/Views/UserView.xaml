@@ -58,12 +58,12 @@
                 <Image.Resources>
                     <Style TargetType="Image">
                         <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
-                        <Setter Property="Source" Value="pack://siteoforigin:,,,/Assets/cam_off.png"/>
+                        <Setter Property="Source" Value="pack://siteoforigin:,,,/Assets/mic_off.png"/>
                         <Setter Property="Width" Value="25"/>
                         <Setter Property="Height" Value="25"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsCameraOn}" Value="True">
-                                <Setter Property="Source" Value="pack://siteoforigin:,,,/Assets/cam_on.png"/>
+                            <DataTrigger Binding="{Binding IsMicrophoneOn}" Value="True">
+                                <Setter Property="Source" Value="pack://siteoforigin:,,,/Assets/mic_on.png"/>
                             </DataTrigger>
                             <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
                                 <Setter Property="Width" Value="15"/>

@@ -4,6 +4,8 @@ using System.Windows;
 using WebEye.Controls.Wpf;
 using Zoom_Server.Logging;
 using Zoom_UI.ClientServer;
+using Zoom_UI.Managers;
+using Zoom_UI.Managersl;
 using Zoom_UI.MVVM.Core;
 using Zoom_UI.MVVM.ViewModels;
 
@@ -20,6 +22,7 @@ public partial class App : Application
     private readonly ApplicationData applicationData;
     private readonly WebCameraCaptureManager cameraCaptureManager;
     private readonly ScreenCaptureManager screenCaptureManager;
+    private readonly MicrophoneCaptureManager microphoneCaptureManager;
 
     private int _serverPort = 9999;
     private string _serverIP = "127.0.0.1";
@@ -34,12 +37,14 @@ public partial class App : Application
         cameraCaptureManager = new WebCameraCaptureManager(webCamera);
         screenCaptureManager = new ScreenCaptureManager(1080, 1920);
         currentUser.IsCurrentUser = true;
+        microphoneCaptureManager = new();
         applicationData = new(
             comunicator, 
             cameraCaptureManager, 
             themeManager, currentUser, 
             viewModelNavigator, 
-            screenCaptureManager);
+            screenCaptureManager,
+            microphoneCaptureManager);
     }
 
     protected override void OnStartup(StartupEventArgs e)

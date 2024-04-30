@@ -9,7 +9,7 @@ using WebEye.Controls.Wpf;
 using Zoom_Server.Net;
 using Zoom_UI.MVVM.Models;
 
-namespace Zoom_UI.MVVM.Core;
+namespace Zoom_UI.Managers;
 
 public class ScreenCaptureManager
 {

@@ -5,7 +5,7 @@ using WebEye.Controls.Wpf;
 using Zoom_Server.Net;
 using Zoom_UI.MVVM.Models;
 
-namespace Zoom_UI.MVVM.Core;
+namespace Zoom_UI.Managers;
 
 
 public interface IImageCaptureService
@@ -27,7 +27,7 @@ public interface IImageCaptureService
 public class WebCameraCaptureManager //: IImageCaptureService
 {
     private CancellationTokenSource CameraTokenSource = new();
-    public WebCameraControl WebCamera {  get; private set; }
+    public WebCameraControl WebCamera { get; private set; }
     public Bitmap? CurrentBitmap { get; private set; }
 
 
@@ -42,7 +42,7 @@ public class WebCameraCaptureManager //: IImageCaptureService
         WebCamera = webCamera;
         CameraTokenSource.Cancel();
     }
-    
+
     public IEnumerable<WebCameraId> GetInputDevices()
     {
         return WebCamera.GetVideoCaptureDevices();
@@ -51,7 +51,7 @@ public class WebCameraCaptureManager //: IImageCaptureService
 
     public void StartCapturing(WebCameraId cameraId, int fps)
     {
-        if(CameraTokenSource != null && !CameraTokenSource.IsCancellationRequested)
+        if (CameraTokenSource != null && !CameraTokenSource.IsCancellationRequested)
         {
             return;
         }
@@ -69,12 +69,18 @@ public class WebCameraCaptureManager //: IImageCaptureService
 
     public void StopCapturing()
     {
-        CameraTokenSource.Cancel();
-
-        Application.Current.Dispatcher.Invoke(() =>
+        try
         {
-            WebCamera.StopCapture();
-        });
+            CameraTokenSource.Cancel();
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                WebCamera.StopCapture();
+            });
+        }
+        catch (Exception)
+        {
+        }
     }
 
 
@@ -110,7 +116,7 @@ public class WebCameraCaptureManager //: IImageCaptureService
         }
         finally
         {
-            OnCaptureFinished?.Invoke();    
+            OnCaptureFinished?.Invoke();
         }
     }
 }

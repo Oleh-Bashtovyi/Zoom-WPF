@@ -15,14 +15,14 @@ internal class ThemeToImageConverter : IValueConverter
     {
          if(value is string str)
          {
-             if(str == "dark")
-            {
-                return dark;
-            }
+             if(str == "Dark")
+             {
+                 return dark;
+             }
              else
-            {
-                return light;
-            }
+             {
+                 return light;
+             }
          }
 
         return light;

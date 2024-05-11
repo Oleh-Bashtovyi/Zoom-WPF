@@ -1,5 +1,4 @@
-﻿using System.Configuration;
-using System.Data;
+﻿using System.Collections.ObjectModel;
 using System.Windows;
 using WebEye.Controls.Wpf;
 using Zoom_Server.Logging;
@@ -7,6 +6,7 @@ using Zoom_UI.ClientServer;
 using Zoom_UI.Managers;
 using Zoom_UI.Managersl;
 using Zoom_UI.MVVM.Core;
+using Zoom_UI.MVVM.Models;
 using Zoom_UI.MVVM.ViewModels;
 
 namespace Zoom_UI;
@@ -23,13 +23,16 @@ public partial class App : Application
     private readonly WebCameraCaptureManager cameraCaptureManager;
     private readonly ScreenCaptureManager screenCaptureManager;
     private readonly MicrophoneCaptureManager microphoneCaptureManager;
+    private readonly ObservableCollection<DebugMessage> ErrorsBuffer = new();
+    private readonly LoggerWithCollection ErrorLoger;
 
     private int _serverPort = 9999;
     private string _serverIP = "127.0.0.1";
 
     public App()
     {
-        comunicator = new(_serverIP, _serverPort, new LoggerWithConsole());
+        ErrorLoger = new(ErrorsBuffer);
+        comunicator = new(_serverIP, _serverPort, ErrorLoger);
         viewModelNavigator = new ViewModelNavigator();
         webCamera = new WebCameraControl();
         themeManager = new ThemeManager();
@@ -44,7 +47,8 @@ public partial class App : Application
             themeManager, currentUser, 
             viewModelNavigator, 
             screenCaptureManager,
-            microphoneCaptureManager);
+            microphoneCaptureManager,
+            ErrorLoger);
     }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -61,7 +65,6 @@ public partial class App : Application
 
         MainWindow.Show();
         comunicator.Run();
-
         base.OnStartup(e);
     }
 }

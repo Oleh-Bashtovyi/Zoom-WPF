@@ -19,7 +19,6 @@ public class BoolToMicrophoneImageConverter : IValueConverter
 
     private static BitmapImage mic_on = new (new ("pack://siteoforigin:,,,/Assets/mic_on.png", UriKind.Absolute));
     private static BitmapImage mic_off = new (new  ("pack://siteoforigin:,,,/Assets/mic_off.png", UriKind.Absolute));
-    //E:\work\course_2\semester_2\ookp\Lab_7\Zoom\Zoom_UI\Assets\mic_on.png
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         bool boolValue = (bool)value;

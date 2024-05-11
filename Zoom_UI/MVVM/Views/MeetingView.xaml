@@ -11,8 +11,8 @@
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
              Background="{DynamicResource SecondaryBrush}"
-             MinHeight="615" MinWidth="1060"
-             MaxWidth="1920" MaxHeight="1080">
+             MinHeight="615" MinWidth="1060" Height="615"
+             MaxWidth="1920" MaxHeight="1080" Width="1060">
     
     <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
@@ -265,11 +265,15 @@
                                             Padding="5"
                                             Style="{DynamicResource DefaultBorder}" 
                                             Background="{DynamicResource SecondaryBrush}">
-                                        <TextBox HorizontalAlignment="Left"
+                                        <StackPanel Orientation="Vertical">
+                                            <TextBlock Style="{StaticResource MessageTitleTextBlock}"
+                                                       Text="{Binding Time}"/>
+                                            <TextBox HorizontalAlignment="Left"
                                                  IsReadOnly="True"
                                                  VerticalAlignment="Top"
-                                                 Text="{Binding Mode=OneWay}"
-                                                 Margin="0 15 0 0" TextWrapping="Wrap"/>
+                                                 Text="{Binding Content, Mode=OneWay}"
+                                                 Margin="0 5 0 0" TextWrapping="Wrap"/>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

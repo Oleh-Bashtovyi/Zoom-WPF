@@ -88,7 +88,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     #endregion
 
     #region COLLECCTIONS
-    public ObservableCollection<string> ErrorsList { get; } = new();
+    public ObservableCollection<DebugMessage> ErrorsList { get; } 
     public ObservableCollection<UserViewModel> Participants { get; } = new();
     public ObservableCollection<UserViewModel> ParticipantsSelection { get; } = new();
     public ObservableCollection<MessageModel> ParticipantsMessages { get; } = new();
@@ -139,6 +139,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator = data.Comunicator;
         _meetingId = meeting.Id;
         _webCamera = data.WebCamera;
+        ErrorsList = data.ErrorsBuffer;
+        OnPropertyChanged(nameof(ErrorsList));
         _screenCaptureManager = data.ScreenCaptureManager;
         _meetingTokenSource = new CancellationTokenSource();
         DownloadFileCommand = new FileRelayCommand(DownloadFile);
@@ -263,7 +265,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             Application.Current.Dispatcher.Invoke(() =>
             {
                 MessageBox.Show(ex.Message);
-                ErrorsList.Add(ex.Message);
+                ErrorsList.Add(new(ex.Message));
             });
         }
     }
@@ -350,7 +352,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             Application.Current.Dispatcher.Invoke(() =>
             {
                 MessageBox.Show(ex.Message);
-                ErrorsList.Add(ex.Message);
+                ErrorsList.Add(new(ex.Message));
             });
         }
     }
@@ -457,7 +459,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             Application.Current.Dispatcher.Invoke(() =>
             {
                 //CurrentUser.CameraImage = bitmap.AsBitmapImage();
-                Task.Run(async () => await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, bitmap.ResizeBitmap(250, 250)));
+                Task.Run(async () => await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, MeetingId, bitmap.ResizeBitmap(250, 250)));
             });
         }
     }
@@ -479,7 +481,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             IsDemonstrationActive = false;
-            ErrorsList.Add("Recived command from comunicator to stop demostrating!");
+            ErrorsList.Add(new("Recived command from comunicator to stop demostrating!"));
         });
     }
     private void Comunicator_OnScreenFrameReceived(ImageFrame frame)
@@ -503,7 +505,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             IsDemonstrationActive = false;
-            ErrorsList.Add("Screen capture manager finished capture process!");
+            ErrorsList.Add(new("Screen capture manager finished capture process!"));
             Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_DEMONSTRATION(CurrentUser.Id));
         });
     }
@@ -512,7 +514,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         if(bitmap != null)
         {
-            Task.Run(async () => await _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000)));
+            _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000));
+
+
+            //Task.Run(async () => await _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000)));
             //_comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000));
             //ScreenDemonstrationImage = bitmap.AsBitmapImage();
         }
@@ -548,7 +553,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             MessageBox.Show(model.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            ErrorsList.Add(model.Message ?? string.Empty);
+            ErrorsList.Add(new(model.Message ?? string.Empty));
         });
     }
     private void OnSuccessReceived(SuccessModel model)
@@ -573,18 +578,15 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         CurrentUser.IsMicrophoneOn = true;
     }
-
     private void MicrophonManager_SoundReceived(byte[] soundBytes)
     {
-        //waveProvider.AddSamples(soundBytes, 0, soundBytes.Length);
-        Task.Run(async () => await _comunicator.SEND_AUDIO(CurrentUser.Id, soundBytes));
+        _comunicator.SEND_AUDIO(new(CurrentUser.Id, soundBytes));
     }
-
-
     private void MicrophonManager_CaptureFinished()
     {
         CurrentUser.IsMicrophoneOn = false;
     }
+
 
 
     private void Comunicator_UserTurnedMicrophoneOn(UserModel model)

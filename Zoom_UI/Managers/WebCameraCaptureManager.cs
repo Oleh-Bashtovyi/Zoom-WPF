@@ -2,7 +2,7 @@
 using System.Windows;
 using System.Windows.Media.Media3D;
 using WebEye.Controls.Wpf;
-using Zoom_Server.Net;
+using Zoom_Server.Net.Codes;
 using Zoom_UI.MVVM.Models;
 
 namespace Zoom_UI.Managers;

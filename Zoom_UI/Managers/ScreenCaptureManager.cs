@@ -1,22 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
 using System.Windows;
-using WebEye.Controls.Wpf;
-using Zoom_Server.Net;
 using Zoom_UI.MVVM.Models;
-
+using System.Drawing.Imaging;
+using System.Windows.Threading;
+using System.Windows.Media.Media3D;
+using Zoom_Server.Net.Codes;
 namespace Zoom_UI.Managers;
 
 public class ScreenCaptureManager
 {
-    private CancellationTokenSource ScreenTokenSource = new();
+    private DispatcherTimer Timer = new ();
     public Bitmap? CurrentBitmap { get; private set; }
-    public int Height { get; private set; }
-    public int Width { get; private set; }
+    public int CaptureHeight { get; private set; }
+    public int CaptureWidth { get; private set; }
+    public int Fps { get; private set; }
+    public TimeSpan GetIntervalBetweenFrames => TimeSpan.FromMilliseconds(1000.0 / Fps);
 
 
     public event Action<Bitmap?>? OnImageCaptured;
@@ -25,88 +23,61 @@ public class ScreenCaptureManager
     public event Action? OnCaptureFinished;
 
 
-    public ScreenCaptureManager(int height, int width)
+    public ScreenCaptureManager(int captureHeight, int captureWidth, int fps = 15)
     {
-        Height = height;
-        Width = width;
-        ScreenTokenSource.Cancel();
+        Fps = fps;
+        CaptureHeight = captureHeight;
+        CaptureWidth = captureWidth;
+        Timer.Interval = GetIntervalBetweenFrames;
+        Timer.Tick += Timer_Tick;
     }
 
 
-
-
-    public void StartCapturing(int fps)
+    public void StartCapturing()
     {
-        if (ScreenTokenSource != null && !ScreenTokenSource.IsCancellationRequested)
-        {
-            return;
-        }
-
-        ScreenTokenSource?.Dispose();
-        ScreenTokenSource = new();
-
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            Task.Run(async () => await CaptureProcess(fps, ScreenTokenSource.Token));
-        });
+        Timer.Start();
+        OnCaptureStarted?.Invoke();
     }
 
 
     public void StopCapturing()
     {
-        ScreenTokenSource.Cancel();
+        Timer.Stop();
+        OnCaptureFinished?.Invoke();
     }
 
 
-
-    private async Task CaptureProcess(int fps, CancellationToken token)
+    private void Timer_Tick(object? sender, EventArgs e)
     {
         try
         {
-            OnCaptureStarted?.Invoke();
-
-            var delay = (int)(1000d / fps);
-
-            while (true)
+            Application.Current.Dispatcher.Invoke(() =>
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    CurrentBitmap = Screenshot();
-                });
+                CurrentBitmap = Screenshot();
+            });
 
-                OnImageCaptured?.Invoke(CurrentBitmap);
-
-                await Task.Delay(delay, token);
-            }
+            OnImageCaptured?.Invoke(CurrentBitmap);
         }
-        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             OnError?.Invoke(new(ErrorCode.GENERAL, ex.Message));
-        }
-        finally
-        {
-            OnCaptureFinished?.Invoke();
+            throw;
         }
     }
-
-
 
 
 
     private Bitmap Screenshot()
     {
         // Get the size of the primary screen using SystemParameters
-        /*        int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
-                int screenHeight = (int)SystemParameters.PrimaryScreenHeight;*/
+/*        int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
+        int screenHeight = (int)SystemParameters.PrimaryScreenHeight;*/
 
-        Bitmap screenshot = new Bitmap(Width, Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var screenshot = new Bitmap(CaptureWidth, CaptureHeight, PixelFormat.Format32bppArgb);
 
         using (Graphics graphics = Graphics.FromImage(screenshot))
         {
-            graphics.CopyFromScreen(
-                0, 0, 0, 0,
-                new System.Drawing.Size(Width, Height));
+            graphics.CopyFromScreen(0, 0, 0, 0, new System.Drawing.Size(CaptureWidth, CaptureHeight));
         }
         return screenshot;
     }

@@ -1,4 +1,4 @@
-﻿namespace Zoom_Server.Net;
+﻿namespace Zoom_Server.Net.Codes;
 
 public enum ScsCode
 {

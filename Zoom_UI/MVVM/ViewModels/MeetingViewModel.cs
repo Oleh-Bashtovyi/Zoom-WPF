@@ -9,13 +9,13 @@ using Zoom_UI.Extensions;
 using System.Drawing;
 using Zoom_UI.ClientServer;
 using System.Windows.Controls;
-using Zoom_Server.Net;
 using Microsoft.Win32;
 using System.IO;
 using Zoom_UI.Managers;
 using System.Windows.Media;
 using NAudio.Wave;
 using static Zoom_UI.ClientServer.UdpComunicator;
+using Zoom_Server.Net.Codes;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -32,7 +32,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private UserViewModel _screenDemonstrator;
     private ApplicationData _applicationData;
     private ScreenCaptureManager _screenCaptureManager;
-    private CancellationTokenSource CameraTokenSource;
+    private CancellationTokenSource _meetingTokenSource;
     private bool _isDemonstrationActive;
     private string _message;
     private int _meetingId;
@@ -140,23 +140,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _meetingId = meeting.Id;
         _webCamera = data.WebCamera;
         _screenCaptureManager = data.ScreenCaptureManager;
-
-/*        ParticipantsMessages.Add(new MessageModel()
-        {
-            From = "TEMP",
-            To = "YOU",
-            Content = new FIleModel() { FileName = "This_is_very_loooong_file_file_nafdsfsdfdsfdsfdsfsme.png"},
-            When = DateTime.Now
-        });
-
-        ParticipantsMessages.Add(new MessageModel()
-        {
-            From = "TEMP",
-            To = "YOU",
-            Content ="String message received!",
-            When = DateTime.Now
-        });*/
-
+        _meetingTokenSource = new CancellationTokenSource();
         DownloadFileCommand = new FileRelayCommand(DownloadFile);
 
         Application.Current.Dispatcher.Invoke(() =>
@@ -164,10 +148,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             foreach (var device in _webCamera.GetInputDevices())
             {
                 WebCameras.Add(device);
-            }
-            if(WebCameras.Count > 0)
-            {
-                SelectedWebCamDevice = WebCameras.First();
             }
         });
 
@@ -178,6 +158,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         if(AudioInputDevices.Count > 0)
         {
             SellectedAudioDeviceIndex = 0;
+        }
+        if (WebCameras.Count > 0)
+        {
+            SelectedWebCamDevice = WebCameras.First();
         }
         waveProvider = new BufferedWaveProvider(_applicationData.MicrophoneCaptureManager.GetWaveFormat);
         _waveOut.Init(waveProvider);
@@ -529,6 +513,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         if(bitmap != null)
         {
             Task.Run(async () => await _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000)));
+            //_comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000));
+            //ScreenDemonstrationImage = bitmap.AsBitmapImage();
         }
     }
 
@@ -569,7 +555,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         if (model.SuccessCode == ScsCode.SCREEN_DEMONSTRATION_ALLOWED)
         {
-            _screenCaptureManager.StartCapturing(15);
+            _screenCaptureManager.StartCapturing();
         }
         else
         {

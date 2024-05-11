@@ -1,36 +1,28 @@
-﻿using NAudio.CoreAudioApi;
-using NAudio.Wave;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Input;
-
+﻿using NAudio.Wave;
 namespace Zoom_UI.Managersl;
 
 public class MicrophoneCaptureManager
 {
-
+    private int MaxSoundPacketSize = 32768;
+    private List<byte> SoundPacket = new();
     private WaveInEvent? _currentWaveIn;
     public event Action? OnCaptureStarted;
     public event Action? OnCaptureFinished;
     public event Action<byte[]>? OnSoundCaptured;
 
-
+    public WaveFormat GetWaveFormat => new(Rate, Bits, Chanels); //audio format(44.1kHz, mono)
     public bool IsMicrophonTurnedOn => _currentWaveIn != null;
     public int Rate { get; private set; }
     public int Bits {  get; private set; }
     public int Chanels {  get; private set; }
-    public WaveFormat GetWaveFormat => new WaveFormat(Rate, Bits, Chanels);
 
-    public MicrophoneCaptureManager(int rate = 44100, int bits = 16, int chanels = 1)
+    public MicrophoneCaptureManager(int maxSoundPacketSize = 32768, int rate = 44100, int bits = 16, int chanels = 1)
     {
         Rate = rate;
         Bits = bits;
         Chanels = chanels;
+        MaxSoundPacketSize = maxSoundPacketSize;
     }
-
 
     public IEnumerable<WaveInCapabilities> GetInputDevices()
     {
@@ -47,26 +39,28 @@ public class MicrophoneCaptureManager
 
     public void StartRecording(int deviceNumber)
     {
-        _currentWaveIn = new();
-        _currentWaveIn.DeviceNumber = deviceNumber;
-        _currentWaveIn.WaveFormat = GetWaveFormat; // Set the desired audio format (44.1kHz, mono)
-        _currentWaveIn.DataAvailable += WaveIn_DataAvailable; // Assign the event handler for new audio data
-        _currentWaveIn.StartRecording();
-        OnCaptureStarted?.Invoke();
+        if(_currentWaveIn == null)
+        {
+            _currentWaveIn = new();
+            _currentWaveIn.DeviceNumber = deviceNumber;
+            _currentWaveIn.WaveFormat = GetWaveFormat; 
+            _currentWaveIn.DataAvailable += WaveIn_DataAvailable;
+            _currentWaveIn.StartRecording();
+            SoundPacket.Clear();
+            OnCaptureStarted?.Invoke();
+        }
     }
-
 
     public void StopRecording()
     {
         if(_currentWaveIn != null)
         {
-            _currentWaveIn?.StopRecording();
-            _currentWaveIn?.Dispose();
-            _currentWaveIn=null;
+            _currentWaveIn.StopRecording();
+            _currentWaveIn.Dispose();
+            _currentWaveIn = null;
             OnCaptureFinished?.Invoke();
         }
     }
-
 
     private void WaveIn_DataAvailable(object? sender, WaveInEventArgs args)
     {
@@ -74,6 +68,12 @@ public class MicrophoneCaptureManager
 
         Array.Copy(args.Buffer, soundBytes, args.BytesRecorded);
 
-        OnSoundCaptured?.Invoke(soundBytes);
+        SoundPacket.AddRange(soundBytes);
+
+        if(SoundPacket.Count >= MaxSoundPacketSize)
+        {
+            OnSoundCaptured?.Invoke(SoundPacket.ToArray());
+            SoundPacket.Clear();
+        }
     }
 }

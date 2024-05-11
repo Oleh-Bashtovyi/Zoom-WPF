@@ -1,4 +1,4 @@
-﻿using Zoom_Server.Net;
+﻿using Zoom_Server.Net.Codes;
 
 namespace Zoom_UI.MVVM.Models
 {

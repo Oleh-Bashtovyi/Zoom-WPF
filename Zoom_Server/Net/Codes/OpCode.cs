@@ -1,4 +1,4 @@
-﻿namespace Zoom_Server.Net;
+﻿namespace Zoom_Server.Net.Codes;
 
 public enum OpCode : byte
 {
@@ -45,46 +45,3 @@ public enum OpCode : byte
     PARTICIPANT_TURNED_MICROPHONE_ON,
     PARTICIPANT_TURNED_MICROPHONE_OFF
 }
-
-
-
-//=====================================================
-//CONNECTION TO SERVER:
-//client:
-//--connect to server on button click.
-//server:
-//--create uid
-//--add user to collection
-
-//=====================================================
-//GET UID:
-//client:
-//--op_code "get_id"
-//server:
-//--op_code "get_id"
-//--uid
-
-//=====================================================
-//CHANGE NAME
-//client:
-//--op_code "change_name"
-//--new_name
-//server:
-//--op_code "change_name"
-//--new_name
-
-
-//=====================================================
-//CREATE MEETING:
-//clinet:  
-//--op_code "new_meeting"
-//server:
-//--create meeting
-//--add user to meeting
-//--send op_code "new_meeting"
-
-//=====================================================
-//JOIN MEETING VIA CODE:
-//clinet:  
-//--op_code "join_meeting"
-//--meeting_code

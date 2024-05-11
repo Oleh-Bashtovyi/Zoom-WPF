@@ -44,28 +44,4 @@ public class FrameBuilder
     public byte[][] GetFrames() => frames.ToArray();
     public IEnumerable<byte[]> GetFramesAsEnumerable() => frames.AsEnumerable();
     public byte[] AsByteArray() => GetFrames().Where(x => x != null).Aggregate((dt1, dt2) => dt1.Concat(dt2).ToArray());
-
-
-
-
-/*    public class FrameComparer : IComparer<Frame>
-    {
-        int IComparer<Frame>.Compare(Frame x, Frame y)
-        {
-            return  x.position - y.position;
-        }
-    }
-
-    public struct Frame
-    {
-        public int position { get; set; }
-        public byte[] data { get; set; }
-
-
-        public Frame(int position, byte[] data)
-        {
-            this.position = position;
-            this.data = data;
-        }
-    }*/
 }

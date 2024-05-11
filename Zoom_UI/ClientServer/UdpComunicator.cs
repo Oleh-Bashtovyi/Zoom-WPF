@@ -1,10 +1,12 @@
-﻿using System.Drawing;
+﻿using System.Collections.Concurrent;
+using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using Zoom_Server.Extensions;
 using Zoom_Server.Logging;
 using Zoom_Server.Net;
+using Zoom_Server.Net.Codes;
 using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Models;
 
@@ -185,9 +187,33 @@ public class UdpComunicator : OneProcessServer
             pw.Write_UserFrame(userId, i, cluster);
             data = pw.ToArray();
             await _comunicator.SendAsync(data, _serverEndPoint);
-            await Task.Delay(5);
+            await Task.Delay(3);
         }
     }
+
+
+    /*    public void SEND_SCREEN_IMAGE(int userId, Bitmap bitmap)
+        {
+            var bytes = bitmap.AsByteArray();
+            var clusters = bytes.AsClusters(32768);
+            using var pw = new PacketBuilder();
+            pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME);
+            pw.Write(userId);
+            pw.Write(clusters.Count);
+            var data = pw.ToArray();
+            _comunicator.Send(data, _serverEndPoint);
+
+            for (int i = 0; i < clusters.Count; i++)
+            {
+                var cluster = clusters[i];
+                pw.Clear();
+                pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME);
+                pw.Write_UserFrame(userId, i, cluster);
+                data = pw.ToArray();
+                _comunicator.Send(data, _serverEndPoint);
+            }
+        }*/
+
 
 
 
@@ -249,6 +275,8 @@ public class UdpComunicator : OneProcessServer
         pw.Write(data.Length);
         pw.Write(data);
         await _comunicator.SendAsync(pw.ToArray(), _serverEndPoint);
+
+        var fff = new DatagramPacket(data, data.Length);
     }
 
 

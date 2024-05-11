@@ -279,7 +279,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         }
         else
         {
-            Task.Run(async() => await _comunicator.SEND_REQUEST_FOR_SCREEN_DEMONSTRATION(CurrentUser.Id));
+            Task.Run(async() => await _comunicator.SEND_REQUEST_FOR_SCREEN_DEMONSTRATION(CurrentUser.Id, MeetingId));
         }
     }
 
@@ -449,7 +449,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             CurrentUser.IsCameraOn = false;
-            Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_CAMERA(CurrentUser.Id));
+            Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_CAMERA(CurrentUser.Id, MeetingId));
         });
     }
     private void WebCameraManager_OnFrameCaptured(Bitmap? bitmap)
@@ -495,6 +495,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
+            ErrorsList.Add(new("Screen capture manager STARTED capture process!"));
             ScreenDemonstrator = CurrentUser;
             IsDemonstrationActive = true;
         });
@@ -505,7 +506,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             IsDemonstrationActive = false;
-            ErrorsList.Add(new("Screen capture manager finished capture process!"));
+            ErrorsList.Add(new("Screen capture manager FINISHED capture process!"));
             Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_DEMONSTRATION(CurrentUser.Id));
         });
     }
@@ -514,10 +515,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         if(bitmap != null)
         {
-            _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000));
+            //_comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, MeetingId, bitmap.ResizeBitmap(1000, 1000));
 
 
-            //Task.Run(async () => await _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000)));
+            Task.Run(async () => await _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, MeetingId, bitmap.ResizeBitmap(1000, 1000)));
             //_comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, bitmap.ResizeBitmap(1000, 1000));
             //ScreenDemonstrationImage = bitmap.AsBitmapImage();
         }
@@ -560,6 +561,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         if (model.SuccessCode == ScsCode.SCREEN_DEMONSTRATION_ALLOWED)
         {
+            //ErrorsList.Add(new("Server allowed to capture screen"));
             _screenCaptureManager.StartCapturing();
         }
         else

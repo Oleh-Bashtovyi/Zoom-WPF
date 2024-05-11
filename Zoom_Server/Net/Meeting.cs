@@ -2,8 +2,12 @@
 
 internal class Meeting
 {
+    private List<Client> _clients;
     internal int Id { get; }
-    private List<Client> _clients { get; }
+    internal Client? ScreenDemonstartor { get; set; }
+    public IEnumerable<Client> Clients => _clients.AsEnumerable();
+
+
 
     public Meeting()
     {
@@ -11,7 +15,6 @@ internal class Meeting
         _clients = new();
     }
 
-    public IEnumerable<Client> Clients => _clients.AsEnumerable();
 
 
     public void AddParticipant(Client participant)

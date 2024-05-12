@@ -221,7 +221,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         }
         else
         {
-            _comunicator.SEND_USER_TURN_SCREEN_CAPTURE_ON(CurrentUser.Id, MeetingId);
+            _comunicator.Send_UserTurnScreenCapture_On(CurrentUser.Id, MeetingId);
         }
     }
     private void Switch_Theme()
@@ -260,6 +260,24 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             File.WriteAllBytes(savePath, file.Data);
         }
     }
+    private void SendMessage()
+    {
+        if (!string.IsNullOrWhiteSpace(Message))
+        {
+            var selectedUserId = SelectedParticipant?.Id ?? -1;
+
+            if (selectedUserId <= 0)
+            {
+                _comunicator.Send_MessageEveryone(CurrentUser.Id, MeetingId, Message);
+                Message = string.Empty;
+            }
+            else
+            {
+                _comunicator.Send_Message(CurrentUser.Id, selectedUserId, MeetingId, Message);
+                Message = string.Empty;
+            }
+        }
+    }
     private void SendFile()
     {
         var openFileDialog = new OpenFileDialog();
@@ -285,20 +303,13 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
 
-    private void SendMessage()
-    {
-        if (!string.IsNullOrWhiteSpace(Message))
-        {
-            Task.Run(() => _comunicator.SEND_MESSAGE(CurrentUser.Id, SelectedParticipant?.Id ?? -1, Message));
-        }
-    }
-    private void AddNewMessage(UserViewModel from, UserViewModel to, object content)
+    private void AddNewMessage(string sender, string receiver, object content)
     {
         var message = new MessageModel();
         message.Content = content;
         message.When = DateTime.Now;
-        message.From = from.Username;
-        message.To = to.Username;
+        message.From = sender;
+        message.To = receiver;
         ParticipantsMessages.Add(message);
     }
     private void AddUserToMeeting(UserModel model)
@@ -419,7 +430,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             CurrentUser.IsCameraOn = true;
         });
-        _comunicator.Send_UserTurnCameraOn(CurrentUser.Id, MeetingId);
+        _comunicator.Send_UserTurnCamera_On(CurrentUser.Id, MeetingId);
     }
     private void WebCameraManager_OnCaptureFinished()
     {
@@ -427,7 +438,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             CurrentUser.IsCameraOn = false;
         });
-        _comunicator.Send_UserTurnCameraOff(CurrentUser.Id, MeetingId);
+        _comunicator.Send_UserTurnCamera_Off(CurrentUser.Id, MeetingId);
     }
     private void WebCameraManager_OnFrameCaptured(Bitmap? bitmap)
     {
@@ -486,7 +497,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             //ErrorsList.Add(new("Screen capture manager FINISHED capture process!"));
             ScreenDemonstrator = null;
             IsDemonstrationActive = false;
-            _comunicator.SEND_USER_TURN_SCREEN_CAPTURE_OFF(CurrentUser.Id, MeetingId);
+            _comunicator.Send_UserTurnScreenCapture_Off(CurrentUser.Id, MeetingId);
         });
     }
     private void ScreenCaptureManager_OnFrameCaptured(Bitmap? bitmap)
@@ -494,7 +505,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         if(bitmap != null)
         {
             ScreenDemonstrationImage = bitmap.AsBitmapImage();
-            _comunicator.SEND_SCREEN_IMAGE(CurrentUser.Id, MeetingId, bitmap.ResizeBitmap(1000, 1000));
+            _comunicator.Send_ScreenFrame(CurrentUser.Id, MeetingId, bitmap.ResizeBitmap(1000, 1000));
         }
     }
     #endregion
@@ -504,9 +515,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            var from = Participants.FirstOrDefault(x => x.Id == message.SenderId) ?? new();
-            var to = Participants.FirstOrDefault(x => x.Id == message.ReceiverId) ?? _everyone;
-            AddNewMessage(from, to, message?.Content ?? string.Empty);
+            AddNewMessage(message.Sender, message.Receiver, message?.Content ?? string.Empty);
         });
     }
     private void OnErrorReceived(ErrorModel model)
@@ -545,7 +554,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private void MicrophonManager_CaptureStarted()
     {
         CurrentUser.IsMicrophoneOn = true;
-        _comunicator.Send_UserTurnMicrophoneOn(CurrentUser.Id, MeetingId);
+        _comunicator.Send_UserTurnMicrophone_On(CurrentUser.Id, MeetingId);
     }
     private void MicrophonManager_SoundReceived(byte[] soundBytes)
     {
@@ -556,7 +565,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private void MicrophonManager_CaptureFinished()
     {
         CurrentUser.IsMicrophoneOn = false;
-        _comunicator.Send_UserTurnMicrophoneOff(CurrentUser.Id, MeetingId);
+        _comunicator.Send_UserTurnMicrophone_Off(CurrentUser.Id, MeetingId);
     }
     private void Comunicator_UserTurnedMicrophoneOn(UserModel model)
     {

@@ -2,15 +2,15 @@
 
 public class MessageInfo
 {
-    public int SenderId {  get; set; }
-    public int ReceiverId {  get; set; }
+    public string Sender {  get; set; }
+    public string Receiver {  get; set; }
     public object? Content { get; set; }
 
 
-    public MessageInfo(int senderId, int receiverId, object content)
+    public MessageInfo(string sender, string receiver, object content)
     {
-        SenderId = senderId;
-        ReceiverId = receiverId;
+        Sender = sender;
+        Receiver = receiver;
         Content = content;
     }
 }

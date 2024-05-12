@@ -61,7 +61,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             () => IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
 
         ConnectToServerCommand = new RelayCommand(
-            () => Task.Run(async () => await _comunicator.SEND_CREATE_USER(UsernameChangeField)),
+            () => _comunicator.Send_CreateUser(UsernameChangeField),
             () => !IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
 
         CreateNewMeetingCommand = new RelayCommand(

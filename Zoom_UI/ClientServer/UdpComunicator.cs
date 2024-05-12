@@ -30,6 +30,12 @@ public class UdpComunicator : OneProcessServer
     {
         public int UserId { get; set; }
         public byte[] Data { get; set; }
+
+        public AudioFrame(int userId, byte[] data)
+        {
+            UserId = userId;
+            Data = data;
+        }   
     }
 
 
@@ -92,12 +98,15 @@ public class UdpComunicator : OneProcessServer
     }
 
 
-    public async Task SEND_CREATE_USER(string username)
+    public void Send_CreateUser(string username)
     {
-        using var pb = new PacketBuilder();
-        pb.Write(OpCode.CREATE_USER);
-        pb.Write(username);
-        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.CREATE_USER);
+            bw.Write(username);
+            PacketsBuffer.Add(ms.ToArray());
+        }
     }
     public async Task SEND_CHANGE_NAME(int userId, string newUSername)
     {
@@ -119,15 +128,44 @@ public class UdpComunicator : OneProcessServer
 
 
 
-    public async Task SEND_MESSAGE(int fromUserId, int toUserId, string message)
+    /*    public async Task SEND_MESSAGE(int fromUserId, int toUserId, string message)
+        {
+            using var pb = new PacketBuilder();
+            pb.Write(OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
+            pb.Write(fromUserId);
+            pb.Write(toUserId);
+            pb.Write(message);
+            await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+        }*/
+
+
+    public void Send_MessageEveryone(int fromUserId, int meetingId, string message)
     {
-        using var pb = new PacketBuilder();
-        pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);
-        pb.Write(fromUserId);
-        pb.Write(toUserId);
-        pb.Write(message);
-        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
+            bw.Write(fromUserId);
+            bw.Write(meetingId);
+            bw.Write(message);
+            PacketsBuffer.Add(ms.ToArray());
+        }
     }
+
+    public void Send_Message(int senderUserId, int receiverUserId, int meetingId, string message)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND);
+            bw.Write(senderUserId);
+            bw.Write(receiverUserId);
+            bw.Write(meetingId);
+            bw.Write(message);
+            PacketsBuffer.Add(ms.ToArray());
+        }
+    }
+
 
 
 
@@ -147,11 +185,11 @@ public class UdpComunicator : OneProcessServer
     {
         SendPacket(OpCode.PARTICIPANT_LEFT_MEETING, userId, meetingId);
     }
-    public void Send_UserTurnCameraOn(int userId, int meetingId)
+    public void Send_UserTurnCamera_On(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_CAMERA_ON, userId, meetingId);
     }
-    public void Send_UserTurnCameraOff(int userId, int meetingId)
+    public void Send_UserTurnCamera_Off(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_CAMERA_OFF, userId, meetingId);
     }
@@ -184,11 +222,11 @@ public class UdpComunicator : OneProcessServer
             }
         }
     }
-    public void Send_UserTurnMicrophoneOn(int userId, int meetingId)
+    public void Send_UserTurnMicrophone_On(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_MICROPHONE_ON, userId, meetingId);
     }
-    public void Send_UserTurnMicrophoneOff(int userId, int meetingId)
+    public void Send_UserTurnMicrophone_Off(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_MICROPHONE_OFF, userId, meetingId);
     }
@@ -196,44 +234,15 @@ public class UdpComunicator : OneProcessServer
     {
         SendPacket(OpCode.PARTICIPANT_SENT_AUDIO, userId, meetingId, audio);
     }
-
-
-    public void SEND_USER_TURN_SCREEN_CAPTURE_ON(int userId, int meetingId)
+    public void Send_UserTurnScreenCapture_On(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON, userId, meetingId);
     }
-    public void SEND_USER_TURN_SCREEN_CAPTURE_OFF(int userId, int meetingId)
+    public void Send_UserTurnScreenCapture_Off(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF, userId, meetingId);
     }
-    /*    public async Task SEND_SCREEN_IMAGE(int userId, int meetingId, Bitmap bitmap)
-        {
-            var bytes = bitmap.AsByteArray();
-            var clusters = bytes.AsClusters(32768);
-            using var pw = new PacketBuilder();
-            pw.Write(OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME);
-            pw.Write(userId);
-            pw.Write(meetingId);
-            pw.Write(clusters.Count);
-            var data = pw.ToArray();
-            PacketsBuffer.Add(data);
-            await Task.Delay(5);
-
-            for (int i = 0; i < clusters.Count; i++)
-            {
-                pw.Clear();
-                pw.Write((byte)OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME);
-                pw.Write(userId);
-                pw.Write(meetingId);
-                pw.Write(i);
-                pw.Write(clusters[i].Length);
-                pw.Write(clusters[i]);
-                PacketsBuffer.Add(pw.ToArray());    
-                await Task.Delay(3);
-            }
-        }*/
-
-    public void SEND_SCREEN_IMAGE(int userId, int meetingId, Bitmap bitmap)
+    public void Send_ScreenFrame(int userId, int meetingId, Bitmap bitmap)
     {
         var bytes = bitmap.AsByteArray();
         var clusters = bytes.AsClusters(32768);
@@ -307,7 +316,7 @@ public class UdpComunicator : OneProcessServer
 
     public async Task SEND_FILE(int fromUserId, int toUserId, string filePath)
     {
-        var clusters = File.ReadAllBytes(filePath).AsClusters(32768);
+/*        var clusters = File.ReadAllBytes(filePath).AsClusters(32768);
         using var pw = new PacketBuilder();
         pw.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE);
         pw.Write(fromUserId);
@@ -327,7 +336,7 @@ public class UdpComunicator : OneProcessServer
             data = pw.ToArray();
             await _comunicator.SendAsync(data, _serverEndPoint);
             await Task.Delay(5);
-        }
+        }*/
     }
 
 
@@ -415,7 +424,7 @@ public class UdpComunicator : OneProcessServer
                         var length = br.ReadInt32();
                         var data = br.ReadBytes(length);
                         //log.LogSuccess($"Audio received! User: {userId}, Length: {data.Length}");
-                        OnUser_SentAudioFrame?.Invoke(new() { UserId = userId, Data = data });
+                        OnUser_SentAudioFrame?.Invoke(new(userId, data));
                     }
                     else if(opCode == OpCode.PARTICIPANT_TURNED_MICROPHONE_ON)
                     {
@@ -517,7 +526,7 @@ public class UdpComunicator : OneProcessServer
                     //===================================================================
                     //----MESSAGES
                     //===================================================================
-                    else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
+/*                    else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
                     {
                         var fromUser = br.ReadInt32();
                         var toUser = br.ReadInt32();
@@ -531,10 +540,10 @@ public class UdpComunicator : OneProcessServer
                         fileBuilder.FromUserId = fromUser;
                         fileBuilder.FrameBuilder = new(numberOfClusters);
                         USer_FileBuilder[fromUser] = fileBuilder;
-                    }
+                    }*/
                     else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
                     {
-                        var frameData = br.ReadUserFrame();
+/*                        var frameData = br.ReadUserFrame();
                         var frames = USer_FileBuilder.GetValueOrDefault(frameData.UserId);
 
                         if (frames != null)
@@ -552,15 +561,23 @@ public class UdpComunicator : OneProcessServer
 
                                 OnMessageSent?.Invoke(mes);
                             }
-                        }
+                        }*/
                     }
-                    else if(opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
+
+                    else if(opCode == OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE)
                     {
-                        var fromUser = br.ReadInt32();
-                        var toUser = br.ReadInt32();
+                        var fromUser = br.ReadString();
+                        var message = br.ReadString();
+                        OnMessageSent?.Invoke(new(fromUser, "Everyone", message));
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_MESSAGE_SEND)
+                    {
+                        var fromUser = br.ReadString();
+                        var toUser = br.ReadString();
                         var message = br.ReadString();
                         OnMessageSent?.Invoke(new(fromUser, toUser, message));
                     }
+
                     //===================================================================
                     //----GENERAL
                     //===================================================================

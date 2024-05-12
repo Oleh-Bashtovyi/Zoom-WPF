@@ -295,46 +295,63 @@ internal class UdpServer : OneProcessServer
             //==================================================================================================
             //----MESSAGES
             //==================================================================================================
-
-
-
-
-            else if (opCode == OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE)
+            else if(opCode == OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE)
             {
-                var fromUserId = br.ReadInt32();
-                var toUserId = br.ReadInt32();
+                var userId = br.ReadInt32();
+                var meetingId = br.ReadInt32();
                 var message = br.ReadString();
-                var fromClient = Clients.FirstOrDefault(x => x.Id ==  fromUserId);  
-                var toClient = Clients.FirstOrDefault(x => x.Id ==  toUserId);  
+                var meeting = Meetings.FirstOrDefault( x => x.Id == meetingId);
 
-                if(fromClient != null && fromClient.MeetingId > 0)
+                if(meeting != null)
                 {
-                    if(toClient != null)
-                    {
-                        using var pb = new PacketBuilder();
-                        pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);  //Code
-                        pb.Write(fromClient.Id);                             //From user (id)
-                        pb.Write(toClient.Id);                               //to user (id)
-                        pb.Write(message);                                   //Message
-                        await udpServer.SendAsync(pb.ToArray(), fromClient.IPAddress, token);
-                        await udpServer.SendAsync(pb.ToArray(), toClient.IPAddress, token);
-                    }
-                    else
-                    {
-                        using var pb = new PacketBuilder();
-                        pb.Write(OpCode.PARTICIPANT_MESSAGE_SENT_EVERYONE);  //Code
-                        pb.Write(fromClient.Id);                             //From user (id)
-                        pb.Write(-1);                                   //to user (id)
-                        pb.Write(message);                                   //Message
+                    var sender = meeting.Clients.FirstOrDefault(x => x.Id == userId);
 
-                        foreach (var participant in Clients.Where(x => x.MeetingId == fromClient.MeetingId))
+                    if (sender != null)
+                    {
+                        using (var ms = new MemoryStream())
+                        using (var bw = new BinaryWriter(ms))
                         {
-                            await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
+                            bw.Write(sender.Username);
+                            bw.Write(message);
+                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
                         }
                     }
                 }
             }
-            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
+            else if(opCode == OpCode.PARTICIPANT_MESSAGE_SEND)
+            {
+                var senderUserId = br.ReadInt32();
+                var receiverUserId = br.ReadInt32();
+                var meetingId = br.ReadInt32();
+                var message = br.ReadString();
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+
+                if (meeting != null)
+                {
+                    var receiver = meeting.Clients.FirstOrDefault(x => x.Id == receiverUserId);
+                    var sender = meeting.Clients.FirstOrDefault(x => x.Id == senderUserId);
+
+                    if(sender != null && receiver != null)
+                    {
+                        using (var ms = new MemoryStream())
+                        using (var bw = new BinaryWriter(ms))
+                        {
+                            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND);
+                            bw.Write(sender.Username);
+                            bw.Write(receiver.Username);
+                            bw.Write(message);
+                            await udpServer.SendAsync(ms.ToArray(), receiver.IPAddress, token);
+                            await udpServer.SendAsync(ms.ToArray(), sender.IPAddress, token);
+                        }
+                    }
+                }
+            }
+
+
+
+
+/*            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
             {
                 var fromUser = br.ReadInt32();
                 var toUser = br.ReadInt32();
@@ -352,7 +369,7 @@ internal class UdpServer : OneProcessServer
                     fileBuilder.FrameBuilder = new(numberOfClusters);
                     User_FileBuilder[fromUser] = fileBuilder;
                 }
-            }
+            }*/
             else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
             {
 /*                var frameData = br.ReadUserFrame();
@@ -424,6 +441,37 @@ internal class UdpServer : OneProcessServer
 
 
 
+
+/*    private async Task Handle_QuestionCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    {
+        var question = (QstCode)br.ReadByte();
+        
+        if(question == QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE)
+        {
+            var meetingId = br.ReadInt32();
+            var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+
+            if(meeting != null)
+            {
+                using (var ms = new  MemoryStream())
+                using (var bw = new BinaryWriter(ms))
+                {
+                    var participants = meeting.Clients.ToArray();
+                    bw.Write((byte)OpCode.QUESTION_CHECKOUT);
+                    bw.Write((byte)QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE);
+                    bw.Write(participants.Length);
+
+                    foreach (var participant in participants)
+                    {
+                        bw.Write(participant.Id);
+                        bw.Write(participant.IsCameraOn);
+                    }
+
+                    await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+                }
+            }
+        }
+    }*/
 
 
 

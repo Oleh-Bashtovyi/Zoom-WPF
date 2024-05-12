@@ -9,6 +9,12 @@ namespace Zoom_Server.Net;
 
 internal class UdpServer : OneProcessServer
 {
+    private UdpClient udpServer;
+    private List<Client> Clients { get; } = new();
+    private List<Meeting> Meetings { get; } = new();
+    private Dictionary<int, FileBuilder> User_FileBuilder { get; } = new();
+
+
     public class FileBuilder
     {
         public FrameBuilder FrameBuilder { get; set; }
@@ -18,27 +24,10 @@ internal class UdpServer : OneProcessServer
     }
 
 
-
-    private UdpClient udpServer;
-
-
-    //Collections
-    private List<Client> Clients { get; } = new();
-    private List<Meeting> Meetings { get; } = new();
-
-    private Dictionary<int, FileBuilder> User_FileBuilder { get; } = new();
-
-
-
-
-
-
     public UdpServer(string host, int port, ILogger logger) : base(host, port, logger)
     {
         udpServer = new UdpClient(_port);
     }
-
-
 
     protected override async Task Process(CancellationToken token)
     {
@@ -93,12 +82,13 @@ internal class UdpServer : OneProcessServer
             //==================================================================================================
             if (opCode == OpCode.PARTICIPANT_SENT_AUDIO)
             {
-                var userId = br.ReadInt32();    
+                var userId = br.ReadInt32();   
+                var meetingId = br.ReadInt32();
                 var length = br.ReadInt32();
                 var data = br.ReadBytes(length);
-                var user = Clients.FirstOrDefault(x => x.Id == userId);
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
-                if(user != null && user.MeetingId > 0)
+                if (meeting != null)
                 {
                     using (var ms = new MemoryStream())
                     using (var bw = new BinaryWriter(ms))
@@ -107,7 +97,8 @@ internal class UdpServer : OneProcessServer
                         bw.Write(userId);
                         bw.Write(data.Length);
                         bw.Write(data);
-                        await BroadcastPacket(ms.ToArray(), Clients.Where(x => x.MeetingId == user.MeetingId), token);
+                        //log.LogError(string.Join(",", data));
+                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
                     }
                 }
             }
@@ -177,58 +168,6 @@ internal class UdpServer : OneProcessServer
             //==================================================================================================
             //----SCREEN
             //==================================================================================================
-            else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
-            {
-                var userId = br.ReadInt32();
-                var meetingId = br.ReadInt32();
-                var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
-                log.LogWarning($"Received request for demonstration start. user: {userId}, meeting: {meetingId}");
-
-                if (meeting != null)
-                {
-                    if(meeting.ScreenDemonstartor != null)
-                    {
-                        if (meeting.ScreenDemonstartor.Id != userId)
-                        {
-                            using (var ms = new MemoryStream())
-                            using (var bw = new BinaryWriter(ms))
-                            {
-                                bw.Write((byte)OpCode.ERROR);
-                                bw.Write((byte)ErrorCode.SCREEN_CAPTURE_DOES_NOT_ALLOWED);
-                                bw.Write("Screen capture is already taken!");
-                                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-                            }
-                        }
-                        else log.LogWarning("User already demstrate screen!");
-                    }
-
-                    var user = meeting.Clients.FirstOrDefault(x => x.Id == userId);
-
-                    if (user != null)
-                    {
-                        using (var ms = new MemoryStream())
-                        using (var bw = new BinaryWriter(ms))
-                        {
-                            meeting.ScreenDemonstartor = user;
-                            bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON);
-                            bw.Write(userId);
-                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
-                        }
-
-                        using (var ms = new MemoryStream())
-                        using (var bw = new BinaryWriter(ms))
-                        {
-                            meeting.ScreenDemonstartor = user;
-                            bw.Write((byte)OpCode.SUCCESS);
-                            bw.Write((byte)ScsCode.SCREEN_DEMONSTRATION_ALLOWED);
-                            bw.Write("Screen can be taken!");
-                            await udpServer.SendAsync(ms.ToArray(), user.IPAddress, token);
-                            log.LogWarning($"Demonstration was allowed for user: {userId}, meeting: {meetingId}");
-                        }
-                    }
-                    else log.LogError($"Meeting does not have such user!");
-                }
-            }
             else if(opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME)
             {
                 var userId = br.ReadInt32();
@@ -277,11 +216,66 @@ internal class UdpServer : OneProcessServer
                     }
                 }
             }
+            else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
+            {
+                var userId = br.ReadInt32();
+                var meetingId = br.ReadInt32();
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+                log.LogWarning($"Received request for demonstration start. user: {userId}, meeting: {meetingId}");
+
+                if (meeting != null)
+                {
+                    if(meeting.ScreenDemonstartor != null)
+                    {
+                        if (meeting.ScreenDemonstartor.Id != userId)
+                        {
+                            using (var ms = new MemoryStream())
+                            using (var bw = new BinaryWriter(ms))
+                            {
+                                bw.Write((byte)OpCode.ERROR);
+                                bw.Write((byte)ErrorCode.SCREEN_CAPTURE_DOES_NOT_ALLOWED);
+                                bw.Write("Screen capture is already taken!");
+                                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+                            }
+                        }
+                        else log.LogWarning("User already demstrate screen!");
+
+                        return;
+                    }
+
+                    var user = meeting.Clients.FirstOrDefault(x => x.Id == userId);
+
+                    if (user != null)
+                    {
+                        using (var ms = new MemoryStream())
+                        using (var bw = new BinaryWriter(ms))
+                        {
+                            meeting.ScreenDemonstartor = user;
+                            bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON);
+                            bw.Write(userId);
+                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        }
+
+                        using (var ms = new MemoryStream())
+                        using (var bw = new BinaryWriter(ms))
+                        {
+                            meeting.ScreenDemonstartor = user;
+                            bw.Write((byte)OpCode.SUCCESS);
+                            bw.Write((byte)ScsCode.SCREEN_DEMONSTRATION_ALLOWED);
+                            bw.Write("Screen can be taken!");
+                            await udpServer.SendAsync(ms.ToArray(), user.IPAddress, token);
+                            log.LogWarning($"Demonstration was allowed for user: {userId}, meeting: {meetingId}");
+                        }
+                    }
+                    else log.LogError($"Meeting does not have such user!");
+                }
+            }
             else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF)
             {
                 var userId = br.ReadInt32();
                 var meetingId = br.ReadInt32();
-                var meeting = Meetings.Where(x => x.Id == userId).FirstOrDefault();
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+                log.LogWarning($"Received request to stop screen demonstration. Meeting: {meetingId}, User: {userId}");
 
                 if (meeting != null && 
                     meeting.ScreenDemonstartor != null && 
@@ -291,6 +285,7 @@ internal class UdpServer : OneProcessServer
                     using (var bw = new BinaryWriter(ms))
                     {
                         meeting.ScreenDemonstartor = null;
+                        log.LogError($"Screen demonstration was stoped by user: {userId}, meeting: {meetingId}");
                         bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF);
                         bw.Write(userId);
                         await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
@@ -406,15 +401,15 @@ internal class UdpServer : OneProcessServer
             //==================================================================================================
             else if (opCode == OpCode.CREATE_MEETING)
             {
-                await HANDLE_MeetingCreation(udpResult, br, token);
+                await Handle_MeetingCreation(udpResult, br, token);
             }
             else if (opCode == OpCode.CREATE_USER)
             {
-                await HANDLE_UserCreation(udpResult, br, token);
+                await Handle_UserCreation(udpResult, br, token);
             }
             else if (opCode == OpCode.CHANGE_USER_NAME)
             {
-                await HANDLE_UserRename(udpResult, br, token);
+                await Handle_UserRename(udpResult, br, token);
             }
         }
         catch (Exception ex) 
@@ -441,7 +436,7 @@ internal class UdpServer : OneProcessServer
 
 
 
-    private async Task HANDLE_UserCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    private async Task Handle_UserCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
@@ -455,7 +450,7 @@ internal class UdpServer : OneProcessServer
             await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
         }
     }
-    private async Task HANDLE_UserRename(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    private async Task Handle_UserRename(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         var userPacket = UserPacket.ReadPacket(br);
         var user = Clients.FirstOrDefault(x => x.Id == userPacket.Id);
@@ -472,7 +467,7 @@ internal class UdpServer : OneProcessServer
             }
         }
     }
-    private async Task HANDLE_MeetingCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    private async Task Handle_MeetingCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
@@ -481,18 +476,14 @@ internal class UdpServer : OneProcessServer
             Meetings.Add(newMeeting);
             bw.Write((byte)OpCode.CREATE_MEETING);
             bw.Write(newMeeting.Id);
-            log.LogWarning($"Sending new meeting info: id:{newMeeting}");
+            //log.LogWarning($"Sending new meeting info: id:{newMeeting}");
             await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
         }
     }
-
-
-
-
     private async Task Handle_JoinUsingCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         var meetingId = br.ReadInt32();
-        var meeting   = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();   
+        var meeting   = Meetings.FirstOrDefault(x => x.Id == meetingId);   
 
         if(meeting != null)
         {
@@ -501,7 +492,7 @@ internal class UdpServer : OneProcessServer
             {
                 bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
                 bw.Write(meetingId);
-                log.Log($"Somebody asked to enter meeting room! Room id:{meetingId}");
+                //log.Log($"Somebody asked to enter meeting room! Room id:{meetingId}");
                 await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
             }
         }
@@ -511,7 +502,7 @@ internal class UdpServer : OneProcessServer
         var userId      = br.ReadInt32();
         var meetingCode = br.ReadInt32();
         var meeting     = Meetings.Where(x => x.Id == meetingCode).FirstOrDefault();
-        log.Log($"Somebody said that he has entered meeting room! User:{userId} Meeting:{meetingCode}");
+        //log.Log($"Somebody said that he has entered meeting room! User:{userId} Meeting:{meetingCode}");
 
         if (meeting != null)
         {
@@ -521,15 +512,15 @@ internal class UdpServer : OneProcessServer
             {
                 meeting.AddParticipant(client);
                 await BroadCastParticipantJoin(meetingCode, token);
-                log.LogSuccess($"USer with id: {userId} joined meeting: {meetingCode}!");
+                //log.LogSuccess($"USer with id: {userId} joined meeting: {meetingCode}!");
             }
-            else log.LogError($"There is no such client! Clients: [{string.Join(", ", Clients.Select(x => x.Id))}]");
+            //else log.LogError($"There is no such client! Clients: [{string.Join(", ", Clients.Select(x => x.Id))}]");
         }
-        else log.LogError($"No Such meeting!: Available meetings: [{string.Join(", ", Meetings.Select(x => x.Id))}]");
+        //else log.LogError($"No Such meeting!: Available meetings: [{string.Join(", ", Meetings.Select(x => x.Id))}]");
     }
     private async Task Handle_UserLeftMeeting(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
-        log.LogWarning("Recived request for meeting leaving");
+        //log.LogWarning("Recived request for meeting leaving");
         var userId =    br.ReadInt32();
         var meetingId = br.ReadInt32();
         var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
@@ -545,7 +536,7 @@ internal class UdpServer : OneProcessServer
                 {
                     var participants = meeting.Clients.ToArray();
                     meeting.RemoveParticipant(user);
-                    log.LogWarning($"User: {userId} leaves meeting: {meetingId}");
+                    //log.LogWarning($"User: {userId} leaves meeting: {meetingId}");
 
                     bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
                     bw.Write(user.Id);
@@ -583,11 +574,11 @@ internal class UdpServer : OneProcessServer
     {
         var userId = br.ReadInt32();
         var meetingId = br.ReadInt32();
-        var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
+        var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
         if (meeting != null)
         {
-            var user = meeting.Clients.Where(x => x.Id == userId).FirstOrDefault();
+            var user = meeting.Clients.FirstOrDefault(x => x.Id == userId);
 
             if (user != null)
             {
@@ -599,6 +590,7 @@ internal class UdpServer : OneProcessServer
                     var code = newState ? (byte)OpCode.PARTICIPANT_TURNED_MICROPHONE_ON : (byte)OpCode.PARTICIPANT_TURNED_MICROPHONE_OFF;
                     bw.Write(code);
                     bw.Write(userId);
+                    //log.LogWarning($"User: {userId}, meeting: {meetingId} Turned microphon: {newState}");
                     await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
                 }
             }
@@ -624,33 +616,31 @@ internal class UdpServer : OneProcessServer
     }
 
 
-    
-
-
-
-
 
 
 
     private async Task BroadCastParticipantJoin(int meetingId, CancellationToken token)
     {
-        var participants = Clients.Where(x => x.MeetingId == meetingId);
+        var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
-        using var pb = new PacketBuilder();
-
-        foreach(var participant in participants)
+        if(meeting != null)
         {
-            foreach(var participant_2 in participants)
+            using var pb = new PacketBuilder();
+
+            foreach (var participant in meeting.Clients)
             {
-                pb.Clear();
-                pb.Write(OpCode.PARTICIPANT_JOINED_MEETING);
-                pb.Write_UserInfo(participant_2.Id, participant_2.Username);
-                log.LogSuccess($"Broadcating joining info about user:{participant_2.Id} to user: {participant.Id}");
-                await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                foreach (var participant_2 in meeting.Clients)
+                {
+                    pb.Clear();
+                    pb.Write(OpCode.PARTICIPANT_JOINED_MEETING);
+                    pb.Write_UserInfo(participant_2.Id, participant_2.Username);
+                    //log.LogSuccess($"Broadcating joining info about user:{participant_2.Id} to user: {participant.Id}");
+                    await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
+                }
             }
         }
     }
-    private async Task BroadcastFileToParticipants(FileBuilder fileBuilder, CancellationToken token)
+/*    private async Task BroadcastFileToParticipants(FileBuilder fileBuilder, CancellationToken token)
     {
         IEnumerable<Client> participants;
 
@@ -696,6 +686,6 @@ internal class UdpServer : OneProcessServer
                 log.LogSuccess($"Broadcasted frame: {i} to user: {participant.Id}");
             }
         }
-    }
+    }*/
 }
 #pragma warning restore CS8618

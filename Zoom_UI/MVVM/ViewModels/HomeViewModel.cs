@@ -69,11 +69,11 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             () => IsConnected
             );
         JoinMeetingUsingCodeCommand = new RelayCommand(
-            () => Task.Run(async () => 
+            () => Task.Run(() => 
             { 
                 if(int.TryParse(MeetingCodeToJoin, out int code))
                 {
-                    await _comunicator.SEND_JOIN_MEETING_USING_CODE(code); 
+                    _comunicator.SendJoinMeetingUsingCode(code); 
                 }
             }),
             () => IsConnected && !string.IsNullOrWhiteSpace(MeetingCodeToJoin)

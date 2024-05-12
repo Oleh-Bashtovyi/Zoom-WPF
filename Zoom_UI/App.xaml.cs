@@ -38,7 +38,7 @@ public partial class App : Application
         themeManager = new ThemeManager();
         currentUser = new UserViewModel();
         cameraCaptureManager = new WebCameraCaptureManager(webCamera);
-        screenCaptureManager = new ScreenCaptureManager(1080, 1920);
+        screenCaptureManager = new ScreenCaptureManager(1080, 1920, 3);
         currentUser.IsCurrentUser = true;
         microphoneCaptureManager = new();
         applicationData = new(

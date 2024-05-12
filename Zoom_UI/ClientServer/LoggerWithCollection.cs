@@ -21,10 +21,18 @@ public class LoggerWithCollection : ILogger
 
     public void Log(string message)
     {
-        Application.Current.Dispatcher.Invoke(() =>
+        if(Application.Current?.Dispatcher != null)
         {
-            _collection.Add(new(message));
-        });
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                _collection.Add(new(message));
+
+                while (_collection.Count > 100)
+                {
+                    _collection.RemoveAt(_collection.Count - 1);
+                }
+            });
+        }
     }
     public void LogError(string message) =>Log("(ERR): " + message);
     public void LogSuccess(string message) => Log("(INF): " + message);

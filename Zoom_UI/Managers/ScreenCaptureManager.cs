@@ -35,15 +35,20 @@ public class ScreenCaptureManager
 
     public void StartCapturing()
     {
-        Timer.Start();
-        OnCaptureStarted?.Invoke();
+        if (!Timer.IsEnabled)
+        {
+            Timer.Start();
+            OnCaptureStarted?.Invoke();
+        }
     }
-
 
     public void StopCapturing()
     {
-        Timer.Stop();
-        OnCaptureFinished?.Invoke();
+        if(Timer.IsEnabled)
+        {
+            Timer.Stop();
+            OnCaptureFinished?.Invoke();
+        }
     }
 
 

@@ -11,8 +11,8 @@
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
              Background="{DynamicResource SecondaryBrush}"
-             MinHeight="615" MinWidth="1060"
-             MaxWidth="1920" MaxHeight="1080">
+             Height="615" Width="1060"
+             MinHeight="615" MinWidth="1060">
     
     <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
@@ -20,8 +20,8 @@
             <RowDefinition Height="90"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="5*"/>
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="5"/>
             <ColumnDefinition Width="320" MinWidth="320" MaxWidth="550"/>
         </Grid.ColumnDefinitions>
 

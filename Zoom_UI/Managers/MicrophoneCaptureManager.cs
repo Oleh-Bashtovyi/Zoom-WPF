@@ -16,7 +16,9 @@ public class MicrophoneCaptureManager
     public int Bits {  get; private set; }
     public int Chanels {  get; private set; }
 
-    public MicrophoneCaptureManager(int maxSoundPacketSize = 32768, int rate = 44100, int bits = 16, int chanels = 1)
+    //24576
+    //16384
+    public MicrophoneCaptureManager(int maxSoundPacketSize = 16384, int rate = 44100, int bits = 16, int chanels = 1)
     {
         Rate = rate;
         Bits = bits;
@@ -64,11 +66,11 @@ public class MicrophoneCaptureManager
 
     private void WaveIn_DataAvailable(object? sender, WaveInEventArgs args)
     {
-        byte[] soundBytes = new byte[args.BytesRecorded];
+/*        byte[] soundBytes = new byte[args.BytesRecorded];
 
-        Array.Copy(args.Buffer, soundBytes, args.BytesRecorded);
+        Array.Copy(args.Buffer, soundBytes, args.BytesRecorded);*/
 
-        SoundPacket.AddRange(soundBytes);
+        SoundPacket.AddRange(args.Buffer);
 
         if(SoundPacket.Count >= MaxSoundPacketSize)
         {

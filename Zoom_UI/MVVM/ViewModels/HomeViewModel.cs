@@ -94,7 +94,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         _navigator.CurrentViewModel = new MeetingViewModel(_applicationData, meeting);
     }
 
-    void ISeverEventSubsribable.Unsubscribe()
+    void ISeverEventSubsribable.UnsubscribeEvents()
     {
         _comunicator.OnUserCreated -= OnUserConnected;
         _comunicator.OnUserChangedName -= OnUserNameChanged;
@@ -111,6 +111,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             CurrentUser.Id = user.Id;
             OnPropertyChanged(nameof(UserId));
             OnPropertyChanged(nameof(IsConnected));
+            OnPropertyChanged(nameof(MeetingCodeToJoin));
         });
     }
 

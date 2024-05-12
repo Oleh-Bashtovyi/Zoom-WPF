@@ -11,8 +11,8 @@
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
              Background="{DynamicResource SecondaryBrush}"
-             MinHeight="615" MinWidth="1060" Height="615"
-             MaxWidth="1920" MaxHeight="1080" Width="1060">
+             MinHeight="615" MinWidth="1060"
+             MaxWidth="1920" MaxHeight="1080">
     
     <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
@@ -22,7 +22,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="5*"/>
             <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="3*" MinWidth="320" MaxWidth="550"/>
+            <ColumnDefinition Width="320" MinWidth="320" MaxWidth="550"/>
         </Grid.ColumnDefinitions>
 
         <GridSplitter Grid.Column="1" Grid.RowSpan="2" x:Name="GridSpliter" 

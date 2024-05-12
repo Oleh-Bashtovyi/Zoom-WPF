@@ -15,7 +15,7 @@ public class ViewModelNavigator
             {
                 if(_currentViewModel is ISeverEventSubsribable subsribable)
                 {
-                    subsribable.Unsubscribe();
+                    subsribable.UnsubscribeEvents();
                 }
 
                 _currentViewModel = value;

@@ -23,30 +23,13 @@ internal class UdpServer : OneProcessServer
 
 
     //Collections
-    private HashSet<int> MeetingsIds { get; } = new();
     private List<Client> Clients { get; } = new();
     private List<Meeting> Meetings { get; } = new();
-
-    private Dictionary<int, UserScreenCapture> Meeting_ScreenCapture { get; } = new();
 
     private Dictionary<int, FileBuilder> User_FileBuilder { get; } = new();
 
 
 
-
-
-    private class UserScreenCapture
-    {
-        public int UserId { get; set; }
-        public FrameBuilder ScreenFrame { get; set; }
-
-
-        public UserScreenCapture(int userId, FrameBuilder screenFrame)
-        {
-            UserId = userId;
-            ScreenFrame = screenFrame;
-        }
-    }
 
 
 
@@ -403,18 +386,24 @@ internal class UdpServer : OneProcessServer
 
 
 
+            //==================================================================================================
+            //----PARTICIPATING
+            //==================================================================================================
             else if (opCode == OpCode.PARTICIPANT_LEFT_MEETING)
             {
                 await Handle_UserLeftMeeting(udpResult, br, token);
             }
             else if (opCode == OpCode.PARTICIPANT_JOINED_MEETING)
             {
-                await HANDLE_UserJoinedMeeting(udpResult, br, token);
+                await Handle_UserJoinedMeeting(udpResult, br, token);
             }
             else if (opCode == OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING)
             {
-                await HANDLE_JoinUsingCode(udpResult, br, token);
+                await Handle_JoinUsingCode(udpResult, br, token);
             }
+            //==================================================================================================
+            //----GENERAL
+            //==================================================================================================
             else if (opCode == OpCode.CREATE_MEETING)
             {
                 await HANDLE_MeetingCreation(udpResult, br, token);
@@ -498,28 +487,31 @@ internal class UdpServer : OneProcessServer
     }
 
 
-    private async Task HANDLE_JoinUsingCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+
+
+    private async Task Handle_JoinUsingCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         var meetingId = br.ReadInt32();
+        var meeting   = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();   
 
-        if (MeetingsIds.Contains(meetingId))
+        if(meeting != null)
         {
-            using var ms = new MemoryStream();
-            using var bw = new BinaryWriter(ms);
-            bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
-            bw.Write(meetingId);
-            log.Log($"Somebody asked to enter meeting room! Room id:{meetingId}");
-            await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+            using (var ms = new MemoryStream())
+            using (var bw = new BinaryWriter(ms))
+            {
+                bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
+                bw.Write(meetingId);
+                log.Log($"Somebody asked to enter meeting room! Room id:{meetingId}");
+                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+            }
         }
     }
-    private async Task HANDLE_UserJoinedMeeting(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    private async Task Handle_UserJoinedMeeting(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
-        var userId = br.ReadInt32();
+        var userId      = br.ReadInt32();
         var meetingCode = br.ReadInt32();
-
+        var meeting     = Meetings.Where(x => x.Id == meetingCode).FirstOrDefault();
         log.Log($"Somebody said that he has entered meeting room! User:{userId} Meeting:{meetingCode}");
-
-        var meeting = Meetings.Where(x => x.Id == meetingCode).FirstOrDefault();
 
         if (meeting != null)
         {
@@ -528,24 +520,17 @@ internal class UdpServer : OneProcessServer
             if (client != null)
             {
                 meeting.AddParticipant(client);
-
-                log.LogSuccess($"USer with id: {userId} joined meeting: {meetingCode}!");
-
                 await BroadCastParticipantJoin(meetingCode, token);
+                log.LogSuccess($"USer with id: {userId} joined meeting: {meetingCode}!");
             }
-            else
-            {
-                throw new Exception($"There is no such client! Clients: [{string.Join(", ", Clients.Select(x => x.Id))}]");
-            }
+            else log.LogError($"There is no such client! Clients: [{string.Join(", ", Clients.Select(x => x.Id))}]");
         }
-        else log.LogError($"No Sych meeting!: Available meetings: [{string.Join(", ", MeetingsIds)}]");
+        else log.LogError($"No Such meeting!: Available meetings: [{string.Join(", ", Meetings.Select(x => x.Id))}]");
     }
-
-
-
     private async Task Handle_UserLeftMeeting(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
-        var userId = br.ReadInt32();
+        log.LogWarning("Recived request for meeting leaving");
+        var userId =    br.ReadInt32();
         var meetingId = br.ReadInt32();
         var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
 
@@ -558,10 +543,13 @@ internal class UdpServer : OneProcessServer
                 using (var ms = new MemoryStream())
                 using (var bw = new BinaryWriter(ms))
                 {
+                    var participants = meeting.Clients.ToArray();
                     meeting.RemoveParticipant(user);
+                    log.LogWarning($"User: {userId} leaves meeting: {meetingId}");
+
                     bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
                     bw.Write(user.Id);
-                    await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                    await BroadcastPacket(ms.ToArray(), participants, token);
                 }
             }
         }
@@ -707,37 +695,6 @@ internal class UdpServer : OneProcessServer
                 await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
                 log.LogSuccess($"Broadcasted frame: {i} to user: {participant.Id}");
             }
-        }
-    }
-    private async Task BroadcastFrameToParticipants(
-        OpCode FRMAE_CREATE_CODE,
-        OpCode FRAME_UPDATE_CODE,
-        int userId,
-        IEnumerable<Client> participants, 
-        FrameBuilder builder, 
-        CancellationToken token)
-    {
-        var frames = builder.GetFrames();
-        using var pb = new PacketBuilder();
-
-        log.LogWarning("Process of sending frame begun!");
-        foreach (var participant in participants)
-        {
-            pb.Clear();
-            pb.Write(FRMAE_CREATE_CODE);
-            pb.Write(userId);
-            pb.Write(frames.Count());
-            await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
-
-            for (int i = 0; i < frames.Length; i++)
-            {
-                pb.Clear();
-                pb.Write(FRAME_UPDATE_CODE);
-                pb.Write_UserFrame(userId, i, frames[i]);
-                await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
-            }
-
-            log.LogSuccess($"Frame was sent to user: id:{participant.Id} name:{participant.Username}");
         }
     }
 }

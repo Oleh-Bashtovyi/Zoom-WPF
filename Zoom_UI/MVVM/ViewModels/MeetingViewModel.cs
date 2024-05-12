@@ -8,11 +8,9 @@ using Zoom_UI.MVVM.Models;
 using Zoom_UI.Extensions;
 using System.Drawing;
 using Zoom_UI.ClientServer;
-using System.Windows.Controls;
 using Microsoft.Win32;
 using System.IO;
 using Zoom_UI.Managers;
-using System.Windows.Media;
 using NAudio.Wave;
 using static Zoom_UI.ClientServer.UdpComunicator;
 using Zoom_Server.Net.Codes;
@@ -37,6 +35,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private string _message;
     private int _meetingId;
     private int _sellectedAudioDeviceIndex;
+    private WaveOut _waveOut = new();
+    private BufferedWaveProvider waveProvider;
 
     #region PROPERTIES
     public string Message
@@ -114,11 +114,11 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         #region Commands_initialization
         SendFileCommand = new RelayCommand(SendFile, () => SelectedParticipant != null);
-        SwitchCameraStateCommand =    new RelayCommand(SwitchCameraState);
-        SwitchMicrophonStateCommand = new RelayCommand(SwitchMicrophoneState);
+        SwitchCameraStateCommand =    new RelayCommand(Switch_CameraCaptureState);
+        SwitchMicrophonStateCommand = new RelayCommand(Switch_MicrophoneState);
         LeaveMeetingCommand =         new RelayCommand(LeaveMeeting);
-        StartSharingScreenCommand =   new RelayCommand(StartSharingScreen);
-        ChangeThemeCommand =          new RelayCommand(ChangeTheme);
+        StartSharingScreenCommand =   new RelayCommand(Switch_ScreenCaptureState);
+        ChangeThemeCommand =          new RelayCommand(Switch_Theme);
         CopyMeetingIdCommand =        new RelayCommand(
             () => Clipboard.SetText(MeetingId.ToString()), 
             () => !string.IsNullOrWhiteSpace(MeetingId.ToString()));
@@ -171,8 +171,86 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         #endregion
     }
 
-    private WaveOut _waveOut = new();
-    private BufferedWaveProvider waveProvider;
+
+
+
+
+    #region Buttons:_Microphone_Camera_ScreenCapture_Theme
+    private void Switch_MicrophoneState()
+    {
+        try
+        {
+            if (_applicationData.MicrophoneCaptureManager.IsMicrophonTurnedOn)
+            {
+                _applicationData.MicrophoneCaptureManager.StopRecording();
+            }
+            else if (SellectedAudioDeviceIndex >= 0)
+            {
+                _applicationData.MicrophoneCaptureManager.StartRecording(SellectedAudioDeviceIndex);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAndLogError(ex.Message);
+        }
+    }
+    private void Switch_CameraCaptureState()
+    {
+        try
+        {
+            if (CurrentUser.IsCameraOn)
+            {
+                _webCamera.StopCapturing();
+            }
+            else
+            {
+                _webCamera.StartCapturing(SelectedWebCamDevice, 20);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAndLogError(ex.Message);
+        }
+    }
+    private void Switch_ScreenCaptureState()
+    {
+        if (IsDemonstrationActive)
+        {
+            _screenCaptureManager.StopCapturing();
+        }
+        else
+        {
+            _comunicator.SEND_USER_TURN_SCREEN_CAPTURE_ON(CurrentUser.Id, MeetingId);
+        }
+    }
+    private void Switch_Theme()
+    {
+        try
+        {
+            _applicationData.ThemeManager.NextTheme();
+        }
+        catch (Exception ex)
+        {
+            ShowAndLogError(ex.Message);
+        }
+    }
+    private void ShowAndLogError(string message)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            ErrorsList.Add(new(message));
+            MessageBox.Show(message);
+        });
+    }
+    #endregion
+
+
+    private void LeaveMeeting()
+    {
+        _comunicator.SEND_USER_LEAVES_MEETING(CurrentUser.Id, MeetingId);
+    }
+
+
 
 
 
@@ -207,19 +285,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     }
 
 
-    private void LeaveMeeting()
-    {
-        try
-        {
-            Task.Run(async () =>
-            {
-                await _comunicator.SEND_USER_LEAVE_MEETING(CurrentUser.Id, CurrentUser.Username);
-            });
-        }
-        catch (Exception)
-        {
-        }
-    }
+
 
 
 
@@ -228,58 +294,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         if (!string.IsNullOrWhiteSpace(Message))
         {
             Task.Run(() => _comunicator.SEND_MESSAGE(CurrentUser.Id, SelectedParticipant?.Id ?? -1, Message));
-        }
-    }
-
-
-
-    private void SwitchMicrophoneState()
-    {
-        if(_applicationData.MicrophoneCaptureManager.IsMicrophonTurnedOn)
-        {
-            _applicationData.MicrophoneCaptureManager.StopRecording();
-        }
-        else if (SellectedAudioDeviceIndex >= 0)
-        {
-            _applicationData.MicrophoneCaptureManager.StartRecording(SellectedAudioDeviceIndex);
-        }
-    }
-
-
-
-    private void SwitchCameraState()
-    {
-        try
-        {
-            if (CurrentUser.IsCameraOn)
-            {
-                _webCamera.StopCapturing();
-            }
-            else
-            {
-                _webCamera.StartCapturing(SelectedWebCamDevice, 20);
-            }
-        }
-        catch (Exception ex)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                MessageBox.Show(ex.Message);
-                ErrorsList.Add(new(ex.Message));
-            });
-        }
-    }
-
-
-    private void StartSharingScreen()
-    {
-        if (IsDemonstrationActive)
-        {
-            _screenCaptureManager.StopCapturing();
-        }
-        else
-        {
-            Task.Run(async() => await _comunicator.SEND_REQUEST_FOR_SCREEN_DEMONSTRATION(CurrentUser.Id, MeetingId));
         }
     }
 
@@ -341,26 +355,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         }
     }
 
-    private void ChangeTheme()
-    {
-        try
-        {
-            _applicationData.ThemeManager.NextTheme();
-        }
-        catch (Exception ex)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                MessageBox.Show(ex.Message);
-                ErrorsList.Add(new(ex.Message));
-            });
-        }
-    }
-    private void AddUserToCollections(UserViewModel user)
-    {
-        Participants.Add(user);
-        ParticipantsSelection.Add(user);
-    }
+
+
     private void RemoveUserFromCollections(UserViewModel user)
     {
         Participants.Remove(user);
@@ -374,8 +370,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
     #region SERVER_EVENTS
-    //PARTICIPATING
-    //===========================================================
+
+    #region PARTICIPATING_EVENTS
     private void Comunicator_OnUserJoinedMeeting(UserModel model)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -390,7 +386,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             if(model.Id == CurrentUser.Id)
             {
                 _navigator.CurrentViewModel = new HomeViewModel(_applicationData);
-                ((ISeverEventSubsribable)this).Unsubscribe();
+                ((ISeverEventSubsribable)this).UnsubscribeEvents();
             }
             else 
             {
@@ -398,9 +394,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             }
         });
     }
+    #endregion
 
-    //CAMERA FRAME
-    //===========================================================
+    #region CAMERA_EVENTS
     private void Comunicator_OnCameraFrameReceived(ImageFrame frame)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -449,7 +445,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         Application.Current.Dispatcher.Invoke(() =>
         {
             CurrentUser.IsCameraOn = false;
-            Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_CAMERA(CurrentUser.Id, MeetingId));
+            _comunicator.SEND_USER_TURN_CAMERA_OFF(CurrentUser.Id, MeetingId);
         });
     }
     private void WebCameraManager_OnFrameCaptured(Bitmap? bitmap)
@@ -458,15 +454,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                //CurrentUser.CameraImage = bitmap.AsBitmapImage();
+                CurrentUser.CameraImage = bitmap.AsBitmapImage();
                 Task.Run(async () => await _comunicator.SEND_CAMERA_FRAME(CurrentUser.Id, MeetingId, bitmap.ResizeBitmap(250, 250)));
             });
         }
     }
+    #endregion
 
-
-    //SCREEN CAPTURE FRAME
-    //===========================================================
+    #region SCREEN_EVENTS
     private void Comunicator_OnScreenDemonstrationStarted(UserModel performer)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -500,17 +495,15 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             IsDemonstrationActive = true;
         });
     }
-
     private void ScreenCaptureManager_OnCaptureFinished()
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
             IsDemonstrationActive = false;
             ErrorsList.Add(new("Screen capture manager FINISHED capture process!"));
-            Task.Run(async () => await _comunicator.SEND_USER_TURN_OFF_DEMONSTRATION(CurrentUser.Id));
+            _comunicator.SEND_USER_TURN_SCREEN_CAPTURE_OFF(CurrentUser.Id, MeetingId);
         });
     }
-
     private void ScreenCaptureManager_OnFrameCaptured(Bitmap? bitmap)
     {
         if(bitmap != null)
@@ -523,7 +516,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             //ScreenDemonstrationImage = bitmap.AsBitmapImage();
         }
     }
-
+    #endregion
 
 
 
@@ -551,11 +544,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             }
         }
 
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            MessageBox.Show(model.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            ErrorsList.Add(new(model.Message ?? string.Empty));
-        });
+        ShowAndLogError(model?.Message ?? string.Empty);
     }
     private void OnSuccessReceived(SuccessModel model)
     {
@@ -576,21 +565,21 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
 
+    #region AUDIO_EVENTS
     private void MicrophonManager_CaptureStarted()
     {
         CurrentUser.IsMicrophoneOn = true;
+        _comunicator.SEND_USER_TURN_MICROPHONE_ON(CurrentUser.Id, MeetingId);
     }
     private void MicrophonManager_SoundReceived(byte[] soundBytes)
     {
-        _comunicator.SEND_AUDIO(new(CurrentUser.Id, soundBytes));
+        _comunicator.SEND_AUDIO(CurrentUser.Id, MeetingId, soundBytes);
     }
     private void MicrophonManager_CaptureFinished()
     {
         CurrentUser.IsMicrophoneOn = false;
+        _comunicator.SEND_USER_TURN_MICROPHONE_OFF(CurrentUser.Id, MeetingId);
     }
-
-
-
     private void Comunicator_UserTurnedMicrophoneOn(UserModel model)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -603,7 +592,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             }
         });
     }
-
     private void Comunicator_UserTurnedMicrophoneOff(UserModel model)
     {
         Application.Current.Dispatcher.Invoke(() =>
@@ -616,7 +604,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             }
         });
     }
-
     private void Comunicator_SoundReceived(AudioFrame audioFrame)
     {
         if(audioFrame.UserId == CurrentUser.Id)
@@ -629,6 +616,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             waveProvider.AddSamples(audioFrame.Data, 0, audioFrame.Data.Length);
         });
     }
+    #endregion
+
 
 
 
@@ -677,11 +666,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnUser_TurnedMicrophone_ON += Comunicator_UserTurnedMicrophoneOn;
         _comunicator.OnUser_TurnedMicrophone_OFF += Comunicator_UserTurnedMicrophoneOff;
 
-
-
-        Task.Run(async() => await _comunicator.SEND_USER_JOINED_MEETING(CurrentUser.Id, _meetingId));
+        _comunicator.SEND_USER_JOINED_MEETING(CurrentUser.Id, _meetingId);
     }
-    void ISeverEventSubsribable.Unsubscribe()
+    void ISeverEventSubsribable.UnsubscribeEvents()
     {
         //participating
         //===========================================================================
@@ -726,10 +713,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _webCamera.StopCapturing();
         _screenCaptureManager.StopCapturing();
 
-        vm.Unsubscribe();
+        vm.UnsubscribeEvents();
 
-
-        Task.Run(async () => await _applicationData.Comunicator.SEND_USER_LEAVE_MEETING(CurrentUser.Id, CurrentUser.Username));
+        _applicationData.Comunicator.SEND_USER_LEAVES_MEETING(CurrentUser.Id, MeetingId);
     }
     #endregion
 }

@@ -128,7 +128,6 @@
                 </DockPanel.Resources>
                 
                 <Button Style="{StaticResource RoundButton}" 
-                        IsEnabled="{Binding IsConnected}"
                         Background="{DynamicResource OnButton}"
                         Command="{Binding JoinMeetingUsingCodeCommand}"
                         Width="90" Margin="10 0 0 0">

@@ -21,7 +21,7 @@ public class MainViewModel : ViewModelBase, IDisposable
     {
         if(CurrentViewModel is ISeverEventSubsribable subsribable)
         {
-            subsribable.Unsubscribe();
+            subsribable.UnsubscribeEvents();
         }
 
         if(CurrentViewModel is IDisposable disposable)

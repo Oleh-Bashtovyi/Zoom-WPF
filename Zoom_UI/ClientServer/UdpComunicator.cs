@@ -1,15 +1,14 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Windows.Controls;
-using System.Windows.Markup;
+using System.Windows;
 using Zoom_Server.Extensions;
 using Zoom_Server.Logging;
 using Zoom_Server.Net;
 using Zoom_Server.Net.Codes;
-using Zoom_Server.Net.Packets;
 using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Models;
 
@@ -17,15 +16,6 @@ namespace Zoom_UI.ClientServer;
 
 public class UdpComunicator : OneProcessServer
 {
-    public class FileBuilder
-    {
-        public FrameBuilder FrameBuilder { get; set; }
-        public string FileName { get; set; }
-        public int FromUserId { get; set; }
-        public int ToUserId { get; set; }
-    }
-
-
     public class AudioFrame
     {
         public int UserId { get; set; }
@@ -43,7 +33,7 @@ public class UdpComunicator : OneProcessServer
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
     private FrameBuilder _screenCaptureBuilder = new(0);
-    private BlockingCollection<byte[]> PacketsBuffer { get; } = new();
+    private BlockingCollection<byte[]> SendingBuffer { get; } = new();
 
 
 
@@ -85,13 +75,14 @@ public class UdpComunicator : OneProcessServer
 
 
 
+    private TimeSpan ServerTimeout;
 
-
-    public UdpComunicator(string host, int port, ILogger logger) : base(host, port, logger)
+    public UdpComunicator(string host, int port, ILogger logger, TimeSpan serverTimeout) : base(host, port, logger)
     {
         _comunicator = new();
         _comunicator.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
         _serverEndPoint = new(IPAddress.Parse(_host), _port);
+        ServerTimeout = serverTimeout;
         log.LogSuccess("Listener initialized!");
     }
 
@@ -100,22 +91,10 @@ public class UdpComunicator : OneProcessServer
 
 
 
-    public async Task SEND_CREATE_MEETING()
+    public void Send_CreateMeeting()
     {
-        await _comunicator.SendAsync(OpCode.CREATE_MEETING.AsArray(), _serverEndPoint);
+        SendingBuffer.Add(OpCode.CREATE_MEETING.AsArray());
     }
-
-
-
-
-
-
-
-
-
-
-
-
     public void Send_CreateUser(string username)
     {
         using (var ms = new MemoryStream())
@@ -123,7 +102,7 @@ public class UdpComunicator : OneProcessServer
         {
             bw.Write((byte)OpCode.CREATE_USER);
             bw.Write(username);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
     public void Send_ChangeName(int userId, string newUSername)
@@ -134,7 +113,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write((byte)OpCode.CHANGE_USER_NAME);
             bw.Write(userId);
             bw.Write(newUSername);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
     public void SendJoinMeetingUsingCode(int meetingCode)
@@ -145,7 +124,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
             bw.Write(meetingCode);
             //log.LogSuccess($"Sending request for meeting joining. Meetingcode: {meetingCode}");
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
     public void Send_UserJoinedMeeting(int userId, int meetingId)
@@ -170,26 +149,37 @@ public class UdpComunicator : OneProcessServer
         var clusters = bytes.AsClusters(32768);
 
         using (var ms = new MemoryStream())
-        using (var pw = new BinaryWriter(ms))
+        using (var bw = new BinaryWriter(ms))
         {
-            pw.Write((byte)OpCode.PARTICIPANT_CAMERA_FRAME_CREATE);
-            pw.Write(userId);
-            pw.Write(meetingId);
-            pw.Write(clusters.Count);
-            var data = ms.ToArray();
-            PacketsBuffer.Add(data);
-
             for (int i = 0; i < clusters.Count; i++)
             {
                 var cluster = clusters[i];
-                ms.Clear();
-                pw.Write((byte)OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE);
-                pw.Write(userId);
-                pw.Write(meetingId);
-                pw.Write(i);
-                pw.Write(cluster.Length);
-                pw.Write(cluster);
-                PacketsBuffer.Add(ms.ToArray());
+
+                if (i == 0)
+                {
+                    ms.Clear();
+                    bw.Write((byte)OpCode.PARTICIPANT_CAMERA_FRAME_CREATE);
+                    bw.Write(userId);
+                    bw.Write(meetingId);
+                    bw.Write(clusters.Count);
+
+                    bw.Write(i);
+                    bw.Write(cluster.Length);
+                    bw.Write(cluster);
+
+                    SendingBuffer.Add(ms.ToArray());
+                }
+                else
+                {
+                    ms.Clear();
+                    bw.Write((byte)OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE);
+                    bw.Write(userId);
+                    bw.Write(meetingId);
+                    bw.Write(i);
+                    bw.Write(cluster.Length);
+                    bw.Write(cluster);
+                    SendingBuffer.Add(ms.ToArray());
+                }
             }
         }
     }
@@ -225,7 +215,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write(userId);
             bw.Write(meetingId);
             bw.Write(clusters.Count);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
 
             for (int i = 0; i < clusters.Count; i++)
             {
@@ -236,7 +226,7 @@ public class UdpComunicator : OneProcessServer
                 bw.Write(i);
                 bw.Write(clusters[i].Length);
                 bw.Write(clusters[i]);
-                PacketsBuffer.Add(ms.ToArray());
+                SendingBuffer.Add(ms.ToArray());
             }
         }
     }
@@ -249,7 +239,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write(fromUserId);
             bw.Write(meetingId);
             bw.Write(message);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
     public void Send_Message(int senderUserId, int receiverUserId, int meetingId, string message)
@@ -262,7 +252,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write(receiverUserId);
             bw.Write(meetingId);
             bw.Write(message);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
     private void SendPacket(OpCode code, int userId, int meetingId)
@@ -273,7 +263,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write((byte)code);
             bw.Write(userId);
             bw.Write(meetingId);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
     private void SendPacket(OpCode code, int userId, int meetingId, byte[] data)
@@ -286,7 +276,7 @@ public class UdpComunicator : OneProcessServer
             bw.Write(meetingId);
             bw.Write(data.Length);
             bw.Write(data);
-            PacketsBuffer.Add(ms.ToArray());
+            SendingBuffer.Add(ms.ToArray());
         }
     }
 
@@ -351,6 +341,11 @@ public class UdpComunicator : OneProcessServer
 
 
 
+
+
+
+
+
     protected async Task SendingProcess(CancellationToken token)
     {
         log.LogSuccess("Sending process started!");
@@ -360,7 +355,7 @@ public class UdpComunicator : OneProcessServer
         {
             try
             {
-                var packet = PacketsBuffer.Take(token);
+                var packet = SendingBuffer.Take(token);
                 await _comunicator.SendAsync(packet, _serverEndPoint, token);
             }
             catch (Exception ex)
@@ -381,10 +376,57 @@ public class UdpComunicator : OneProcessServer
 
 
 
+    private DateTime _serverLastPong { get; set; } 
+
+
+    private async Task PingRemote(CancellationToken token)
+    {
+        try
+        {
+            byte[] data;
+
+            using (var ms = new MemoryStream(8))
+            using (var bw = new BinaryWriter(ms))
+            {
+                bw.Write((byte)OpCode.PING);
+                data = ms.ToArray();
+            }
+
+            _serverLastPong = DateTime.UtcNow;
+
+            while (!token.IsCancellationRequested)
+            {
+                if ((DateTime.UtcNow - _serverLastPong) > ServerTimeout)
+                {
+                    MessageBox.Show("Server is not responding", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    SendingBuffer.Add(data);
+                }
+
+                await Task.Delay(4000, token);
+            }
+        }
+        catch(Exception ex)
+        {
+            log.LogError(ex.Message);
+        }
+    }
+
+
+
+
+
+
+
+
 
     protected override async Task Process(CancellationToken token)
     {
         Task.Run(() => SendingProcess(token));
+        Task.Run(() => PingRemote(token));
 
         try
         {
@@ -395,18 +437,27 @@ public class UdpComunicator : OneProcessServer
                 try
                 {
                     var packet = await _comunicator.ReceiveAsync(token);
-/*                    using var ms = new MemoryStream(packet.Buffer);
-                    using var br = new BinaryReader(ms);
-                    var opCode = (OpCode)br.ReadByte();*/
                     using var ms = new MemoryStream(packet.Buffer);
                     using var br = new PacketReader(ms);
                     var opCode = br.ReadOpCode();
                     //log.LogWarning($"Received op code: {opCode}");
 
+
+                    //===================================================================
+                    //----PING-PONG
+                    //===================================================================
+                    if (opCode == OpCode.PING)
+                    {
+                        SendingBuffer.Add(OpCode.PONG.AsArray());
+                    }
+                    else if (opCode == OpCode.PONG)
+                    {
+                        _serverLastPong = DateTime.UtcNow;
+                    }
                     //===================================================================
                     //----RESULTS
                     //===================================================================
-                    if (opCode == OpCode.ERROR)
+                    else if (opCode == OpCode.ERROR)
                     {
                         var code = br.ReadErrorCode();
                         var message = br.ReadString();
@@ -446,8 +497,23 @@ public class UdpComunicator : OneProcessServer
                     {
                         var userId = br.ReadInt32();
                         var framesCount = br.ReadInt32();
+
+                        var framePosition = br.ReadInt32();
+                        var dataLength = br.ReadInt32();
+                        var data = br.ReadBytes(dataLength);
+
                         //log.LogWarning($"Received command to create camera frame! user:{userId}  clusters:{framesCount}");
-                        User_CameraFrame[userId] = new FrameBuilder(framesCount);
+                        if(framesCount == 1)
+                        {
+                            var image = data.AsBitmapImage();
+                            OnCameraFrameOfUserUpdated?.Invoke(new(userId, image));
+                        }
+                        else
+                        {
+                            var framBuilder = new FrameBuilder(framesCount);
+                            framBuilder.AddFrame(framePosition, data);
+                            User_CameraFrame[userId] = framBuilder;
+                        }
                     }
                     else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE)
                     {

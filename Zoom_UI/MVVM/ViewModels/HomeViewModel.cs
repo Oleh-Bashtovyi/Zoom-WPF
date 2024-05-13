@@ -84,7 +84,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             () => !IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
 
         CreateNewMeetingCommand = new RelayCommand(
-            () => Task.Run(async () => await _comunicator.SEND_CREATE_MEETING()),
+            () => _comunicator.Send_CreateMeeting(),
             () => IsConnected
             );
         JoinMeetingUsingCodeCommand = new RelayCommand(

@@ -32,7 +32,7 @@ public partial class App : Application
     public App()
     {
         ErrorLoger = new(ErrorsBuffer);
-        comunicator = new(_serverIP, _serverPort, ErrorLoger);
+        comunicator = new(_serverIP, _serverPort, ErrorLoger, TimeSpan.FromSeconds(5));
         viewModelNavigator = new ViewModelNavigator();
         webCamera = new WebCameraControl();
         themeManager = new ThemeManager();

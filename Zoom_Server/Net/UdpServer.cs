@@ -23,6 +23,8 @@ internal class UdpServer : OneProcessServer
 
     protected override async Task Process(CancellationToken token)
     {
+        Task.Run(() => PingClients(token));
+
         try
         {
             while (!token.IsCancellationRequested)
@@ -60,6 +62,47 @@ internal class UdpServer : OneProcessServer
 
 
 
+
+
+    private async Task PingClients(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                for (int i = 0; i < Meetings.Count; i++)
+                {
+                    var meeting = Meetings[i];
+                    var clients = meeting.Clients.ToArray();
+
+                    for (int j = 0; j < clients.Length; j++)
+                    {
+                        var client = clients[j];
+
+                        if (client.CheckLastPong())
+                        {
+                            await udpServer.SendAsync(OpCode.PING.AsArray(), client.IPAddress);
+                        }
+                        else
+                        {
+                            await RemoveUserFromMeeting(meeting, client, token);
+                            log.LogError($"User: {client.Id} was removed due to inactivity!");
+                        }
+                    }
+                }
+                log.LogWarning($"Pong processed!");
+                await Task.Delay(5000, token);
+            }
+        }
+        catch { }
+    }
+
+
+
+
+
+
+
     private async Task HandleRequest(UdpReceiveResult udpResult, CancellationToken token)
     {
         using var bufMemory = new MemoryStream(udpResult.Buffer);
@@ -68,6 +111,28 @@ internal class UdpServer : OneProcessServer
         try
         {
             var opCode = (OpCode)br.ReadByte();
+
+
+            //===================================================================
+            //----PING-PONG
+            //===================================================================
+            if (opCode == OpCode.PING)
+            {
+                await udpServer.SendAsync(OpCode.PONG.AsArray(), udpResult.RemoteEndPoint, token);
+            }
+            else if (opCode == OpCode.PONG)
+            {
+                var clientEP = udpResult.RemoteEndPoint;
+
+                foreach (var client in Clients)
+                {
+                    if (client.IPAddress.Equals(clientEP))
+                    {
+                        client.UpdateLastPong();
+                        break;
+                    }
+                }
+            }
 
             //==================================================================================================
             //----AUDIO
@@ -110,6 +175,9 @@ internal class UdpServer : OneProcessServer
                 var userId = br.ReadInt32();
                 var meetingId = br.ReadInt32();
                 var numberOfCusters = br.ReadInt32();
+                var framePosition = br.ReadInt32();
+                var dataLength = br.ReadInt32();
+                var data = br.ReadBytes(dataLength);
                 var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
                 log.LogSuccess($"Received request for frame creation: user:{userId} meeting:{meetingId} clusters:{numberOfCusters}");
 
@@ -121,6 +189,9 @@ internal class UdpServer : OneProcessServer
                         bw.Write((byte)OpCode.PARTICIPANT_CAMERA_FRAME_CREATE);
                         bw.Write(userId);
                         bw.Write(numberOfCusters);
+                        bw.Write(framePosition);
+                        bw.Write(dataLength);
+                        bw.Write(data);
                         await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
                     }
                 }
@@ -504,36 +575,36 @@ internal class UdpServer : OneProcessServer
 
 
 
-/*    private async Task Handle_QuestionCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-    {
-        var question = (QstCode)br.ReadByte();
-        
-        if(question == QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE)
+    /*    private async Task Handle_QuestionCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
         {
-            var meetingId = br.ReadInt32();
-            var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+            var question = (QstCode)br.ReadByte();
 
-            if(meeting != null)
+            if(question == QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE)
             {
-                using (var ms = new  MemoryStream())
-                using (var bw = new BinaryWriter(ms))
+                var meetingId = br.ReadInt32();
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+
+                if(meeting != null)
                 {
-                    var participants = meeting.Clients.ToArray();
-                    bw.Write((byte)OpCode.QUESTION_CHECKOUT);
-                    bw.Write((byte)QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE);
-                    bw.Write(participants.Length);
-
-                    foreach (var participant in participants)
+                    using (var ms = new  MemoryStream())
+                    using (var bw = new BinaryWriter(ms))
                     {
-                        bw.Write(participant.Id);
-                        bw.Write(participant.IsCameraOn);
-                    }
+                        var participants = meeting.Clients.ToArray();
+                        bw.Write((byte)OpCode.QUESTION_CHECKOUT);
+                        bw.Write((byte)QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE);
+                        bw.Write(participants.Length);
 
-                    await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+                        foreach (var participant in participants)
+                        {
+                            bw.Write(participant.Id);
+                            bw.Write(participant.IsCameraOn);
+                        }
+
+                        await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+                    }
                 }
             }
-        }
-    }*/
+        }*/
 
 
 
@@ -542,7 +613,7 @@ internal class UdpServer : OneProcessServer
 
 
 
-
+    private SemaphoreSlim semaphore = new(1);
 
 
 
@@ -641,17 +712,7 @@ internal class UdpServer : OneProcessServer
 
             if(user != null)
             {
-                using (var ms = new MemoryStream())
-                using (var bw = new BinaryWriter(ms))
-                {
-                    var participants = meeting.Clients.ToArray();
-                    meeting.RemoveParticipant(user);
-                    //log.LogWarning($"User: {userId} leaves meeting: {meetingId}");
-
-                    bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
-                    bw.Write(user.Id);
-                    await BroadcastPacket(ms.ToArray(), participants, token);
-                }
+                await RemoveUserFromMeeting(meeting, user, token);
             }
         }
     }
@@ -709,6 +770,34 @@ internal class UdpServer : OneProcessServer
 
 
 
+
+    private async Task RemoveUserFromMeeting(Meeting meeting, Client user, CancellationToken token)
+    {
+        try
+        {
+            await semaphore.WaitAsync();
+
+            using (var ms = new MemoryStream())
+            using (var bw = new BinaryWriter(ms))
+            {
+                var participants = meeting.Clients.ToArray();
+                meeting.RemoveParticipant(user);
+                //log.LogWarning($"User: {userId} leaves meeting: {meetingId}");
+
+                bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
+                bw.Write(user.Id);
+                await BroadcastPacket(ms.ToArray(), participants, token);
+            }
+        }
+        catch
+        {
+            throw;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
 
 
 

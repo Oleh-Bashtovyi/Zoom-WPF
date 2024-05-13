@@ -7,8 +7,14 @@ public enum OpCode : byte
     NONE,
     ERROR,
     SUCCESS,
+
+
     QUESTION_CHECKOUT,
     ACTIVITY_TIMEOUT_CHECKOUT,
+    //Ping-Pong
+    //=============================
+    PING,
+    PONG,
     //Creation
     //=============================
     GET_USER_ID,

@@ -11,7 +11,6 @@
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
              Background="{DynamicResource SecondaryBrush}"
-             Width="Auto" Height="Auto"
              MinHeight="615" MinWidth="960">
     
     <Grid x:Name="MainGrid" Background="Transparent">
@@ -20,9 +19,9 @@
             <RowDefinition Height="90"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="5"/>
-            <ColumnDefinition Width="*" MinWidth="320" MaxWidth="420"/>
+            <ColumnDefinition Width="320" MinWidth="320" MaxWidth="420"/>
         </Grid.ColumnDefinitions>
 
         <GridSplitter Grid.Column="1" Grid.RowSpan="2" x:Name="GridSpliter" 
@@ -89,7 +88,7 @@
                           Foreground="{DynamicResource WarningBrush}"/>
                 </TextBlock>
                 
-                <Image Grid.Row="2" Source="{Binding ScreenDemonstrationImage}" 
+                <Image Grid.Row="2" Source="{Binding ScreenDemonstrationImage}"
                        Margin="5 10 5 5" 
                        DockPanel.Dock="Bottom"
                        RenderOptions.BitmapScalingMode="HighQuality">

@@ -42,9 +42,8 @@ public class UdpComunicator : OneProcessServer
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
-    private Dictionary<int, FileBuilder> USer_FileBuilder { get; } = new();
-
     private FrameBuilder _screenCaptureBuilder = new(0);
+    private BlockingCollection<byte[]> PacketsBuffer { get; } = new();
 
 
 
@@ -86,7 +85,6 @@ public class UdpComunicator : OneProcessServer
 
 
 
-    private BlockingCollection<byte[]> PacketsBuffer { get; } = new();
 
 
     public UdpComunicator(string host, int port, ILogger logger) : base(host, port, logger)
@@ -98,24 +96,10 @@ public class UdpComunicator : OneProcessServer
     }
 
 
-    public void Send_CreateUser(string username)
-    {
-        using (var ms = new MemoryStream())
-        using (var bw = new BinaryWriter(ms))
-        {
-            bw.Write((byte)OpCode.CREATE_USER);
-            bw.Write(username);
-            PacketsBuffer.Add(ms.ToArray());
-        }
-    }
-    public async Task SEND_CHANGE_NAME(int userId, string newUSername)
-    {
-        using var pb = new PacketBuilder();
-        pb.Write(OpCode.CHANGE_USER_NAME);
-        pb.Write(userId);
-        pb.Write(newUSername);
-        await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
-    }
+
+
+
+
     public async Task SEND_CREATE_MEETING()
     {
         await _comunicator.SendAsync(OpCode.CREATE_MEETING.AsArray(), _serverEndPoint);
@@ -128,54 +112,41 @@ public class UdpComunicator : OneProcessServer
 
 
 
-    /*    public async Task SEND_MESSAGE(int fromUserId, int toUserId, string message)
-        {
-            using var pb = new PacketBuilder();
-            pb.Write(OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
-            pb.Write(fromUserId);
-            pb.Write(toUserId);
-            pb.Write(message);
-            await _comunicator.SendAsync(pb.ToArray(), _serverEndPoint);
-        }*/
 
 
-    public void Send_MessageEveryone(int fromUserId, int meetingId, string message)
+
+
+    public void Send_CreateUser(string username)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
         {
-            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
-            bw.Write(fromUserId);
-            bw.Write(meetingId);
-            bw.Write(message);
+            bw.Write((byte)OpCode.CREATE_USER);
+            bw.Write(username);
             PacketsBuffer.Add(ms.ToArray());
         }
     }
-
-    public void Send_Message(int senderUserId, int receiverUserId, int meetingId, string message)
+    public void Send_ChangeName(int userId, string newUSername)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
         {
-            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND);
-            bw.Write(senderUserId);
-            bw.Write(receiverUserId);
-            bw.Write(meetingId);
-            bw.Write(message);
+            bw.Write((byte)OpCode.CHANGE_USER_NAME);
+            bw.Write(userId);
+            bw.Write(newUSername);
             PacketsBuffer.Add(ms.ToArray());
         }
     }
-
-
-
-
     public void SendJoinMeetingUsingCode(int meetingCode)
     {
-        using var pb = new PacketBuilder();
-        pb.Write(OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
-        pb.Write(meetingCode);
-        //log.LogSuccess($"Sending request for meeting joining. Meetingcode: {meetingCode}");
-        PacketsBuffer.Add(pb.ToArray());
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
+            bw.Write(meetingCode);
+            //log.LogSuccess($"Sending request for meeting joining. Meetingcode: {meetingCode}");
+            PacketsBuffer.Add(ms.ToArray());
+        }
     }
     public void Send_UserJoinedMeeting(int userId, int meetingId)
     {
@@ -269,11 +240,31 @@ public class UdpComunicator : OneProcessServer
             }
         }
     }
-
-
-
-
-
+    public void Send_MessageEveryone(int fromUserId, int meetingId, string message)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
+            bw.Write(fromUserId);
+            bw.Write(meetingId);
+            bw.Write(message);
+            PacketsBuffer.Add(ms.ToArray());
+        }
+    }
+    public void Send_Message(int senderUserId, int receiverUserId, int meetingId, string message)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND);
+            bw.Write(senderUserId);
+            bw.Write(receiverUserId);
+            bw.Write(meetingId);
+            bw.Write(message);
+            PacketsBuffer.Add(ms.ToArray());
+        }
+    }
     private void SendPacket(OpCode code, int userId, int meetingId)
     {
         using (var ms = new MemoryStream())
@@ -314,9 +305,9 @@ public class UdpComunicator : OneProcessServer
 
 
 
-    public async Task SEND_FILE(int fromUserId, int toUserId, string filePath)
+/*    public async Task SEND_FILE(int fromUserId, int toUserId, string filePath)
     {
-/*        var clusters = File.ReadAllBytes(filePath).AsClusters(32768);
+        var clusters = File.ReadAllBytes(filePath).AsClusters(32768);
         using var pw = new PacketBuilder();
         pw.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE);
         pw.Write(fromUserId);
@@ -336,9 +327,21 @@ public class UdpComunicator : OneProcessServer
             data = pw.ToArray();
             await _comunicator.SendAsync(data, _serverEndPoint);
             await Task.Delay(5);
-        }*/
+        }
+    }
+*/
+
+    public void Send_FileEveryone(int fromUserId, int meetingId, string filePath)
+    {
+
     }
 
+    //OpCode.PARTICIPANT_FILE_SEND_REQUEST_EVERYONE
+    /*    var senderUserId = br.ReadInt32();
+        var meetingId = br.ReadInt32();
+        var localId = br.ReadInt32();
+        var numberOfClusters = br.ReadInt32();
+        var fileName = br.ReadString();*/
 
 
 

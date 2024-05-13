@@ -126,8 +126,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         SendMessageCommand =          new RelayCommand(
             () => SendMessage(), 
             () => !string.IsNullOrWhiteSpace(Message) && SelectedParticipant != null);
-
-
         #endregion
 
         #region Initial_data
@@ -288,7 +286,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             if(openFileDialog.FileName != null)
             {
-                Task.Run(async () => await _comunicator.SEND_FILE(CurrentUser.Id, SelectedParticipant.Id, openFileDialog.FileName));
+                _comunicator.Send_FileEveryone(CurrentUser.Id, MeetingId, openFileDialog.FileName);
             }
         }
     }

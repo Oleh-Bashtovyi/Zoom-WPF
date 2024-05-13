@@ -8,8 +8,8 @@
         xmlns:views="clr-namespace:Zoom_UI.MVVM.Views"
         mc:Ignorable="d"
          d:DataContext="{d:DesignInstance vms:MainViewModel}"
-         SizeToContent="WidthAndHeight"
-        Title="MainWindow" Height="600" Width="900">
+        Title="MainWindow" Height="615" Width="960"
+        MinHeight="645" MinWidth="1000">
     
     
     

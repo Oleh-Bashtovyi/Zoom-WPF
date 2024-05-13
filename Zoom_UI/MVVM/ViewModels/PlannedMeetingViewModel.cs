@@ -1,17 +1,9 @@
 ﻿namespace Zoom_UI.MVVM.ViewModels;
 
-class PlannedMeetingViewModel : ViewModelBase
+public class PlannedMeetingViewModel : ViewModelBase
 {
-    private int _id;
     private DateTime _plannedTime;
     private string? _description;
-
-
-    public int Id
-    {
-        get => _id;
-        set => SetAndNotifyPropertyChanged(ref  _id, value);    
-    }
 
     public DateTime PlannedTime
     {
@@ -23,5 +15,11 @@ class PlannedMeetingViewModel : ViewModelBase
     {
         get => _description;
         set => SetAndNotifyPropertyChanged(ref _description, value);
+    }
+
+    public PlannedMeetingViewModel(DateTime plannedTime, string? description)
+    {
+        PlannedTime = plannedTime;
+        Description = description;
     }
 }

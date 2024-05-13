@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using System.Reflection;
 using Zoom_Server.Extensions;
 using Zoom_Server.Logging;
 using Zoom_Server.Net.Codes;
@@ -12,16 +13,7 @@ internal class UdpServer : OneProcessServer
     private UdpClient udpServer;
     private List<Client> Clients { get; } = new();
     private List<Meeting> Meetings { get; } = new();
-    private Dictionary<int, FileBuilder> User_FileBuilder { get; } = new();
 
-
-    public class FileBuilder
-    {
-        public FrameBuilder FrameBuilder { get; set; }
-        public string FileName { get; set; }
-        public int FromUserId { get; set; }
-        public int ToUserId { get; set; }
-    }
 
 
     public UdpServer(string host, int port, ILogger logger) : base(host, port, logger)
@@ -350,52 +342,122 @@ internal class UdpServer : OneProcessServer
 
 
 
-
-/*            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
+            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_REQUEST_EVERYONE)
             {
-                var fromUser = br.ReadInt32();
-                var toUser = br.ReadInt32();
+                var senderUserId = br.ReadInt32();
+                var meetingId = br.ReadInt32();
+                var localId = br.ReadInt32();
                 var numberOfClusters = br.ReadInt32();
                 var fileName = br.ReadString();
-                var client = Clients.FirstOrDefault(x => x.Id == fromUser);
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
-
-                if (client != null && client.MeetingId > 0)
+                if(meeting != null)
                 {
-                    var fileBuilder = new FileBuilder();
-                    fileBuilder.FileName = fileName;
-                    fileBuilder.ToUserId = toUser;
-                    fileBuilder.FromUserId = fromUser;
-                    fileBuilder.FrameBuilder = new(numberOfClusters);
-                    User_FileBuilder[fromUser] = fileBuilder;
-                }
-            }*/
-            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
-            {
-/*                var frameData = br.ReadUserFrame();
-                var frames = User_FileBuilder.GetValueOrDefault(frameData.UserId);
+                    var sender = meeting.Clients.FirstOrDefault(x => x.Id == senderUserId);
 
-                if (frames != null)
-                {
-                    frames.FrameBuilder.AddFrame(frameData.Position, frameData.Data);
-
-                    if (frames.FrameBuilder.IsFull)
+                    if(sender != null)
                     {
-                        log.LogSuccess("All frame received!");
+                        var frameBuilder = new FrameBuilder(numberOfClusters);
+                        var fileBuilder = new FileBuilder(frameBuilder, fileName, sender);
+                        meeting.FileBuilders.Add(fileBuilder);
 
-                        await BroadcastFileToParticipants(frames, token);
+                        using (var ms = new MemoryStream())
+                        using (var bw = new BinaryWriter(ms))
+                        {
+                            bw.Write((byte)OpCode.PARTICIPANT_FILE_SEND_REQUEST);
+                            bw.Write(localId);
+                            bw.Write(fileBuilder.Id);
+                            await udpServer.SendAsync(ms.ToArray(), sender.IPAddress, token);
+                        }
                     }
-                }*/
+                }
             }
 
 
+            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_REQUEST)
+            {
 
+            }
+            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
+            {
+                var meetingId = br.ReadInt32();
+                var fileId = br.ReadInt32();
+                var position = br.ReadInt32();
+                var clusterSize = br.ReadInt32();
+                var data = br.ReadBytes(clusterSize);
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
+                if(meeting != null)
+                {
+                    var fileBuilder = meeting.FileBuilders.FirstOrDefault(x => x.Id == fileId);
 
+                    if(fileBuilder != null)
+                    {
+                        var frameBuilder = fileBuilder.FrameBuilder;
+                        frameBuilder.AddFrame(position, data);
 
+                        if (frameBuilder.IsFull)
+                        {
+                            using (var ms = new MemoryStream())
+                            using (var bw = new BinaryWriter(ms))
+                            {
+                                bw.Write((byte)OpCode.PARTICIPANT_FILE_SEND);            //OpCode
+                                bw.Write(fileBuilder.Sender.Username);                   //Sender: username
+                                bw.Write(fileBuilder.Receiver?.Username ?? string.Empty);//Reciever: username
+                                bw.Write(fileBuilder.Id);                                //fileId
+                                bw.Write(frameBuilder.GetCountOfBytes());                //file_length
+                                bw.Write(fileBuilder.FileName);                          //file_name
 
+                                if (fileBuilder.IsToEveryone)
+                                {
+                                    await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                                }
+                                else
+                                {
+                                    await udpServer.SendAsync(ms.ToArray(), fileBuilder.Sender.IPAddress, token);
+                                    await udpServer.SendAsync(ms.ToArray(), fileBuilder.Receiver!.IPAddress, token);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if(opCode == OpCode.PARTICIPANT_FILE_DOWNLOAD_START)
+            {
+                var meetingId = br.ReadInt32();
+                var fileId = br.ReadInt32();
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
+                if(meeting != null)
+                {
+                    var fileBuilder = meeting.FileBuilders.FirstOrDefault(x => x.Id == fileId);
 
+                    if(fileBuilder != null && fileBuilder.FrameBuilder.IsFull)
+                    {
+                        var frameBuilder = fileBuilder.FrameBuilder;
+                        var frames = frameBuilder.GetFrames();
+                        using (var ms = new MemoryStream())
+                        using (var bw = new BinaryWriter(ms))
+                        {
+                            bw.Write((byte)OpCode.PARTICIPANT_FILE_DOWNLOAD_START);
+                            bw.Write(fileId);
+                            await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+
+                            for (int i = 0; i < frames.Length; i++)
+                            {
+                                var frame = frames[i];
+                                ms.Clear();
+                                bw.Write((byte)OpCode.PARTICIPANT_FILE_DOWNLOAD_FRAME);
+                                bw.Write(fileId);
+                                bw.Write(i);
+                                bw.Write(frame.Length);
+                                bw.Write(frame);
+                                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+                            }
+                        }
+                    }
+                }
+            }
 
 
             //==================================================================================================

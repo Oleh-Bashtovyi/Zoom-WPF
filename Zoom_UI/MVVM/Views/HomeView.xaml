@@ -110,16 +110,79 @@
 
         <Grid Grid.Row="1" Grid.Column="1">
             <Grid.RowDefinitions>
+                <RowDefinition Height="60"/>
                 <RowDefinition Height="40"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="60"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Style="{StaticResource DefaultTextBlock}" Text="Planned meetings" FontStyle="Italic"/>
+            <DockPanel Margin="0 5 0 0">
 
-            <ListView Grid.Row="1" Margin="5"/>
+                <TextBlock FontSize="24" VerticalAlignment="Center" FontWeight="Bold" Text="Description: "/>
 
-            <DockPanel Grid.Row ="2">
+                <Button DockPanel.Dock="Right" Margin="0 0 10 0"
+                        IsEnabled="{Binding IsConnected}"
+                            Background="{DynamicResource OnButton}"
+                            Style="{StaticResource RoundButton}"
+                            Command="{Binding CreateNewPlannedMeetingCommand}">
+                    <Button.ToolTip>
+                        <TextBlock>New planned meeting</TextBlock>
+                    </Button.ToolTip>
+                    <Image Source="pack://siteoforigin:,,,/Assets/new.png" 
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Button>
+
+                <Viewbox Margin="10 0"
+                         HorizontalAlignment="Left" Width="150" DockPanel.Dock="Right">
+                    <DatePicker SelectedDate="{Binding PlannedMeetingDate, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsConnected}"/>
+                </Viewbox>
+
+                <Border Margin="10" Style="{StaticResource DefaultBorder}" >
+                    <TextBox Style="{StaticResource DefaultTextBox}"
+                        HorizontalAlignment="Stretch"
+                        FontSize="18"
+                        IsEnabled="{Binding IsConnected}"
+                        Text="{Binding PlannedMeetingDescription, UpdateSourceTrigger=PropertyChanged}"/>
+                </Border>
+            </DockPanel>
+            
+            
+
+            <TextBlock Style="{StaticResource DefaultTextBlock}" Text="Planned meetings" FontStyle="Italic" Grid.Row="1"/>
+
+
+            <ScrollViewer Grid.Row="2" Margin="5" 
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <ListView 
+                      ItemsSource="{Binding PlannedMeetings}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate >
+                            <DockPanel Height="60">
+
+                                <Button DockPanel.Dock="Right" 
+                                        Margin="10"
+                                        Width="80" Height="35"
+                                    Command="{Binding DataContext.RemovePlannedMeetingCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListView}}}"
+                                    CommandParameter="{Binding}">
+                                    Delete
+                                </Button>
+                                
+                                <TextBlock DockPanel.Dock="Top"
+                                           FontSize="24"
+                                           Text="{Binding Description, Mode=OneWay}"/>
+                                <TextBlock DockPanel.Dock="Bottom" 
+                                           FontWeight="Bold"
+                                           FontSize="16"
+                                           Text="{Binding PlannedTime, StringFormat=d}"/>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </ScrollViewer>
+
+            <DockPanel Grid.Row ="3">
                 <DockPanel.Resources>
                     <Style TargetType="{x:Type Image}">
                         <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
@@ -127,88 +190,37 @@
                     </Style>
                 </DockPanel.Resources>
                 
-                <Button Style="{StaticResource RoundButton}" 
-                        Background="{DynamicResource OnButton}"
-                        Command="{Binding JoinMeetingUsingCodeCommand}"
-                        Width="90" Margin="10 0 0 0">
+                    <Button Style="{StaticResource RoundButton}" 
+                            Background="{DynamicResource OnButton}"
+                            Command="{Binding JoinMeetingUsingCodeCommand}"
+                            Width="90" Margin="10 0 0 0">
 
-                    <TextBlock Text="Join using code" 
-                               Style="{StaticResource DefaultTextBlock}"
-                               FontSize="15" 
-                               HorizontalAlignment="Center" 
-                               TextAlignment="Center"
-                               FontWeight="Bold"/>
-                </Button>
+                        <TextBlock Text="Join using code" 
+                                   Style="{StaticResource DefaultTextBlock}"
+                                   FontSize="15" 
+                                   HorizontalAlignment="Center" 
+                                   TextAlignment="Center"
+                                   FontWeight="Bold"/>
+                    </Button>
 
-                <TextBox Text="{Binding MeetingCodeToJoin, UpdateSourceTrigger=PropertyChanged}"
-                         IsEnabled="{Binding IsConnected}"
-                         Style="{StaticResource DefaultTextBox}" 
-                         Margin="10 0 0 0" Width="100"/>
+                    <TextBox Text="{Binding MeetingCodeToJoin, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsConnected}"
+                             Style="{StaticResource DefaultTextBox}" 
+                             Margin="10 0 0 0" Width="100"/>
 
-                <Button DockPanel.Dock="Right"  Margin="0 0 10 0"
-                        Style="{StaticResource RoundButton}"
-                        Background="{DynamicResource OnButton}"
-                        Command="{Binding CreateNewMeetingCommand}">
-                    <Button.ToolTip>
-                        <TextBlock>New meeting</TextBlock>
-                    </Button.ToolTip>
-                    <Image Source="pack://siteoforigin:,,,/Assets/new.png"/>
-                </Button>
+                    <Button DockPanel.Dock="Right"  Margin="0 0 10 0"
+                            Style="{StaticResource RoundButton}"
+                            Background="{DynamicResource OnButton}"
+                            Command="{Binding CreateNewMeetingCommand}">
+                        <Button.ToolTip>
+                            <TextBlock>New meeting</TextBlock>
+                        </Button.ToolTip>
+                        <Image Source="pack://siteoforigin:,,,/Assets/new.png"/>
+                    </Button>
 
-                <Button DockPanel.Dock="Right" Margin="0 0 10 0"
-                        Background="{DynamicResource OnButton}"
-                        Style="{StaticResource RoundButton}"
-                        Command="{Binding CreateNewPlannedMeetingCommand}">
-                    <Button.ToolTip>
-                        <TextBlock>New planned meeting</TextBlock>
-                    </Button.ToolTip>
-                    <Image Source="pack://siteoforigin:,,,/Assets/calendar.png"/>
-                </Button>
+         
                 <Border/>
             </DockPanel>
         </Grid>
-        
-        <!--<StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal">
-            <Border Width="60" Height="60" VerticalAlignment="Center" 
-                    Margin="10 0 0 0"
-                    Style="{StaticResource DefaultBorder}">
-                <Image Source="pack://application:,,,/Assets/user.png" RenderOptions.BitmapScalingMode="HighQuality"/>
-            </Border>
-
-            <TextBlock Margin="10 0 0 0" Style="{StaticResource DefaultTextBlock}">Username:</TextBlock>
-            <TextBox Margin="10 0 0 0" Style="{StaticResource DefaultTextBox}" Width="200" Background="LightYellow"/>
-        </StackPanel>
-
-        <Border Grid.Row="1" Style="{StaticResource DefaultBorder}" Margin="10">
-            <ScrollViewer>
-                <StackPanel Orientation="Vertical">
-
-                    <TextBlock Style="{StaticResource DefaultTextBlock}" Text="Planned meetings" FontStyle="Italic"/>
-
-                    <StackPanel Orientation="Vertical" Name="PlannedMeetingsStackPanel">
-
-                    </StackPanel>
-
-                    <Button Width="170" Margin="20" Command="{Binding }">
-                        Add new planned meetings
-                    </Button>
-                </StackPanel>
-            </ScrollViewer>
-        </Border>
-
-        <Border Grid.Column="1" Grid.Row="1" Margin="10" Style="{StaticResource DefaultBorder}">
-            <DockPanel>
-                <Border DockPanel.Dock="Bottom" Height="70" Padding="10">
-                    <Button Command="{Binding CreateNewMeetingCommand}">
-                        <Button.ToolTip>
-                            <TextBlock>Create new meeting</TextBlock>
-                        </Button.ToolTip>
-                        <Image Source="pack://application:,,,/Assets/new.png" RenderOptions.BitmapScalingMode="HighQuality"/>
-                    </Button>
-                </Border>
-
-                <StackPanel></StackPanel>
-            </DockPanel>
-        </Border>-->
     </Grid>
 </UserControl>

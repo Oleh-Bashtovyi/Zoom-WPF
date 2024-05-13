@@ -3,6 +3,8 @@
 internal class Meeting
 {
     private List<Client> _clients;
+    public List<FileBuilder> FileBuilders { get; private set; }
+
     internal int Id { get; }
     internal Client? ScreenDemonstartor { get; set; }
     public IEnumerable<Client> Clients => _clients.AsEnumerable();
@@ -13,7 +15,9 @@ internal class Meeting
     {
         Id = IdGenerator.NewId();
         _clients = new();
+        FileBuilders = new();
     }
+
 
 
 

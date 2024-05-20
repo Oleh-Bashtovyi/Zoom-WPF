@@ -16,13 +16,6 @@ public class PacketBuilder : BinaryWriter
         _stream.WriteByte(opCode.AsByte());
     }
 
-    public void Write_UserFrame(int fromUser_Id, int position, byte[] data)
-    {
-        Write(fromUser_Id);
-        Write(position);
-        Write(data.Length);
-        Write(data);
-    }
 
     public void Write_UserInfo(int userId, string username)
     {
@@ -54,31 +47,6 @@ public class PacketReader : BinaryReader
         _stream = stream;
     }
 
-
-    public OpCode ReadOpCode()
-    {
-        return (OpCode)ReadByte();
-    }
-
-    public ErrorCode ReadErrorCode()
-    {
-        return (ErrorCode)ReadByte();
-    }
-
-
-
-
-    public record UserInfo(int Id, string Username);
-    /// <summary>
-    /// Read bytes as: Id-(int) and usernam-(string). 
-    /// </summary>
-    /// <returns></returns>
-    public UserInfo ReadUserInfo()
-    {
-        var userId = ReadInt32();
-        var username = ReadString();
-        return new UserInfo(userId, username);  
-    } 
 
     public record UserFrame(int UserId, int Position, byte[] Data);
     /// <summary>

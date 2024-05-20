@@ -1,22 +1,17 @@
 ﻿using System.Net;
 namespace Zoom_Server.Net;
 
-
 internal class Client
 {
-    private readonly TimeSpan _timeout = TimeSpan.FromSeconds(10);
-
-    public int Id { get; set; }
-    public string Username { get; set; }
-    public bool IsCameraOn {  get; set; }
-    public bool IsMicrophoneOn {  get; set; }
-    public int MeetingId => Meeting?.Id ?? -1;
-    public IPEndPoint IPAddress { get; set; }
-    public Meeting? Meeting { get; set; } 
-    public DateTime LastPong { get; private set; }
+    internal int Id { get; set; }
+    internal string Username { get; set; }
+    internal bool IsCameraOn {  get; set; }
+    internal bool IsMicrophoneOn {  get; set; }
+    internal IPEndPoint IPAddress { get; set; }
+    internal DateTime LastPong { get; private set; }
 
 
-    public Client(IPEndPoint iPEndPoint, string username)
+    internal Client(IPEndPoint iPEndPoint, string username)
     {
         Id = IdGenerator.NewId();
         Username = username;
@@ -24,13 +19,11 @@ internal class Client
         LastPong = DateTime.UtcNow;
     }
 
-
-
-    public bool CheckLastPong()
+    internal bool CheckLastPong(TimeSpan _timeout)
     {
         return DateTime.UtcNow - LastPong < _timeout;
     }
-    public void UpdateLastPong()
+    internal void UpdateLastPong()
     {
         LastPong = DateTime.UtcNow;
     }

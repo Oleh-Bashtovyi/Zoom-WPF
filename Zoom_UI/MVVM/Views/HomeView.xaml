@@ -10,7 +10,7 @@
              d:DataContext="{d:DesignInstance vms:HomeViewModel}"
              MinHeight="500"
              MinWidth="800"
-             d:DesignHeight="600" d:DesignWidth="900">
+             d:DesignHeight="600" d:DesignWidth="600">
     
 
     <Grid>

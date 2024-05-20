@@ -494,7 +494,7 @@ public class ZoomClient : OneProcessServer
                     var packet = await _comunicator.ReceiveAsync(token);
                     using var ms = new MemoryStream(packet.Buffer);
                     using var br = new PacketReader(ms);
-                    var opCode = br.ReadOpCode();
+                    var opCode = (OpCode)br.ReadByte();
                     log.LogWarning($"Received op code: {opCode}");
 
 
@@ -515,7 +515,7 @@ public class ZoomClient : OneProcessServer
                     //===================================================================
                     else if (opCode == OpCode.ERROR)
                     {
-                        var code = br.ReadErrorCode();
+                        var code = (ErrorCode)br.ReadByte();
                         var message = br.ReadString();
                         OnErrorReceived?.Invoke(new(code, message));
                     }

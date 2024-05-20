@@ -1,6 +1,4 @@
-﻿using System.Security.Cryptography;
-
-namespace Zoom_Server.Net;
+﻿namespace Zoom_Server.Net;
 
 public class FrameBuilder
 {
@@ -14,14 +12,6 @@ public class FrameBuilder
     {
         frames = new byte[numberOfFrames][];
         NumberOfFrames = 0;
-    }
-
-    public IEnumerable<int> GetMissingFrames()
-    {
-        for (int i = 0; i < frames.Length; i++)
-        {
-            if (frames[i] == null) yield return i;
-        }
     }
 
     public void AddFrame(int position, byte[]? data)
@@ -42,23 +32,6 @@ public class FrameBuilder
         frames[position] = data;
     }
 
-
-    public int GetCountOfBytes()
-    {
-        int count = 0;
-
-        foreach (var frame in frames)
-        {
-            if(frame != null)
-            {
-                count += frame.Length;
-            }
-        }
-
-        return count;
-    }
-
-    public byte[][] GetFrames() => frames.ToArray();
-    public IEnumerable<byte[]> GetFramesAsEnumerable() => frames.AsEnumerable();
+    public byte[][] GetFrames() => frames.Where(x => x != null).ToArray();
     public byte[] AsByteArray() => GetFrames().Where(x => x != null).Aggregate((dt1, dt2) => dt1.Concat(dt2).ToArray());
 }

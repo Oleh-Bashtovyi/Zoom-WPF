@@ -27,7 +27,14 @@ public class ChatFileItem
 
     public ICommand CancelSendingCommand { get; private set; }
 
-    public ChatFileItem(FileInfo file, UserViewModel sender, UserViewModel? receiver, MessageModel wraper, ZoomClient zoomClient, MessageModel parent, int meetingId)
+    public ChatFileItem(
+        FileInfo file, 
+        UserViewModel sender, 
+        UserViewModel? receiver, 
+        MessageModel wraper, 
+        ZoomClient zoomClient,
+        MessageModel parent, 
+        int meetingId)
     {
         _receiver = receiver;
         _sender = sender;
@@ -62,7 +69,11 @@ public class ChatFileItem
                 if (res)
                     Uploaded?.Invoke(this);
                 else
+                {
                     Deleted?.Invoke(this);
+                    Uploaded = null;
+                    Deleted = null;
+                }
             });
         }, token);
     }

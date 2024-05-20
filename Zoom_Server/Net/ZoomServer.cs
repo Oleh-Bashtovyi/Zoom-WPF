@@ -542,7 +542,7 @@ internal class ZoomServer
                             bw.Write(FileManager.GetFileSize(meetingId, fileId));
                             bw.Write(fileId);
                             log.LogSuccess("FILE UPLOAD, SENDING TO PARTICIPANTS");
-                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                            await BroadcastPacket(ms.ToArray(), meeting.Clients.Where(x => x.Id != senderId), token);
                         }
                     }
                 }

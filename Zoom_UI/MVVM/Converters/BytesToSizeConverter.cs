@@ -6,15 +6,15 @@ public class BytesToSizeConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is byte[] bytes)
+        if (value is long size)
         {
-            return FormatFileSize(bytes.Length);
+            return FormatFileSize(size);
         }
 
         return value;
     }
 
-    private string FormatFileSize(int fileSizeInBytes)
+    private string FormatFileSize(long fileSizeInBytes)
     {
         const int kb = 1024;
         const int mb = 1024 * kb;

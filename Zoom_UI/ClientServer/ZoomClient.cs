@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics.Metrics;
 using System.Drawing;
 using System.IO;
 using System.Net;
@@ -11,24 +10,11 @@ using Zoom_Server.Net;
 using Zoom_Server.Net.Codes;
 using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Models;
-
+using Zoom_UI.MVVM.Models.Frames;
 namespace Zoom_UI.ClientServer;
 
-public class UdpComunicator : OneProcessServer
+public class ZoomClient : OneProcessServer
 {
-    public class AudioFrame
-    {
-        public int UserId { get; set; }
-        public byte[] Data { get; set; }
-
-        public AudioFrame(int userId, byte[] data)
-        {
-            UserId = userId;
-            Data = data;
-        }   
-    }
-
-
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
@@ -56,17 +42,21 @@ public class UdpComunicator : OneProcessServer
     public event Action<UserModel>? OnUser_LeftMeeting;
     //CAMERA IMAGE
     //========================================================================
-    public event Action<ImageFrame>? OnCameraFrameOfUserUpdated;
+    public event Action<ImageFrame>? OnCameraFrameReceived;
     public event Action<UserModel>? OnUser_TurnedCamera_ON;
     public event Action<UserModel>? OnUser_TurnedCamera_OFF;
     //SCREEN SHARE
     //========================================================================
-    public event Action<ImageFrame>? OnScreenDemonstrationFrameOfUserUpdated;
+    public event Action<ImageFrame>? OnScreenCaptureFrameReceived;
     public event Action<UserModel>? OnUser_TurnedDemonstration_ON;
     public event Action<UserModel>? OnUser_TurnedDemonstration_OFF;
     //MESSAGES
     //========================================================================
     public event Action<MessageInfo>? OnMessageSent;
+    //FILES
+    //========================================================================
+    public event Action<MessageInfo>? OnFileUploaded;
+    public event Action<FileFrame>? OnFilePartDownloaded;
     //AUDION
     //========================================================================
     public event Action<UserModel>? OnUser_TurnedMicrophone_ON;
@@ -77,7 +67,7 @@ public class UdpComunicator : OneProcessServer
 
     private TimeSpan ServerTimeout;
 
-    public UdpComunicator(string host, int port, ILogger logger, TimeSpan serverTimeout) : base(host, port, logger)
+    public ZoomClient(string host, int port, ILogger logger, TimeSpan serverTimeout) : base(host, port, logger)
     {
         _comunicator = new();
         _comunicator.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
@@ -284,54 +274,121 @@ public class UdpComunicator : OneProcessServer
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-/*    public async Task SEND_FILE(int fromUserId, int toUserId, string filePath)
+    public bool SendFileEveryone(int meetingId, int senderId, string path, string fileId, CancellationToken token)
     {
-        var clusters = File.ReadAllBytes(filePath).AsClusters(32768);
-        using var pw = new PacketBuilder();
-        pw.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE);
-        pw.Write(fromUserId);
-        pw.Write(toUserId);
-        pw.Write(clusters.Count);
-        pw.Write(Path.GetFileName(filePath));
-        var data = pw.ToArray();
-        await _comunicator.SendAsync(data, _serverEndPoint);
-        await Task.Delay(25);
-
-        for (int i = 0; i < clusters.Count; i++)
+        using (var file = File.OpenRead(path))
         {
-            var cluster = clusters[i];
-            pw.Clear();
-            pw.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE);
-            pw.Write_UserFrame(fromUserId, i, cluster);
-            data = pw.ToArray();
-            await _comunicator.SendAsync(data, _serverEndPoint);
-            await Task.Delay(5);
+            int bufferSize = 32768;
+            int chunks = (int)Math.Ceiling((double)file.Length / bufferSize);
+
+            for (var i = 0; i < chunks && !token.IsCancellationRequested; i++)
+            {
+                using (var ms = new MemoryStream(new byte[32900]))
+                using (var bw = new BinaryWriter(ms))
+                {
+                    var data = new byte[bufferSize];
+                    var bytesCount = file.Read(data, 0, bufferSize);
+
+                    if (i + 1 == chunks)
+                    {
+                        bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_LAST_EVERYONE);
+                        bw.Write(senderId);
+                        bw.Write(Path.GetFileName(path));
+                    }
+                    else
+                    {
+                        bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_PART);
+                    }
+
+                    bw.Write(meetingId);
+                    bw.Write(fileId);
+                    bw.Write((long)i * bufferSize);   //cursor position
+                    bw.Write(bytesCount);
+                    bw.Write(data);
+                    SendingBuffer.Add(ms.ToArray());
+                }
+            }
+            if (token.IsCancellationRequested)
+            {
+                SendFileDelete(meetingId, fileId);
+                return true;
+            }
+            return true;
         }
     }
-*/
-
-    public void Send_FileEveryone(int fromUserId, int meetingId, string filePath)
+    public bool SendFile(int meetingId, int senderId, int receiverId,  string path, string fileId, CancellationToken token)
     {
+        using (var file = File.OpenRead(path))
+        {
+            int bufferSize = 32768;
+            int chunks = (int)Math.Ceiling((double)file.Length / bufferSize);
 
+            for (var i = 0; i < chunks && !token.IsCancellationRequested; i++)
+            {
+                using (var ms = new MemoryStream(new byte[32900]))
+                using (var bw = new BinaryWriter(ms))
+                {
+                    var data = new byte[bufferSize];
+                    var bytesCount = file.Read(data, 0, bufferSize);
+
+                    if (i + 1 == chunks)
+                    {
+                        bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_LAST);
+                        bw.Write(senderId);
+                        bw.Write(receiverId);
+                        bw.Write(Path.GetFileName(path));
+                    }
+                    else
+                    {
+                        bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_PART);
+                    }
+
+                    bw.Write(meetingId);
+                    bw.Write(fileId);
+                    bw.Write((long)(i * bufferSize));   //cursor position
+                    bw.Write(bytesCount);
+                    bw.Write(data);
+                    SendingBuffer.Add(ms.ToArray());
+                }
+            }
+            if (token.IsCancellationRequested)
+            {
+                SendFileDelete(meetingId, fileId);
+                return true;
+            }
+            return true;
+        }
+    }
+    public void SendFileDelete(int meetingId, string fileId)
+    {
+        using (var ms = new MemoryStream(16))
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_DELETE);
+            bw.Write(meetingId);
+            bw.Write(fileId);
+            SendingBuffer.Add(ms.ToArray());
+        }
+    }
+    public void DownloadFile(int meetingId,  string fileId, long byteIndex)
+    {
+        using (var ms = new MemoryStream(16))
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_DOWNLOAD);
+            bw.Write(meetingId);
+            bw.Write(fileId);
+            bw.Write(byteIndex);
+            SendingBuffer.Add(ms.ToArray());
+        }
     }
 
-    //OpCode.PARTICIPANT_FILE_SEND_REQUEST_EVERYONE
-    /*    var senderUserId = br.ReadInt32();
-        var meetingId = br.ReadInt32();
-        var localId = br.ReadInt32();
-        var numberOfClusters = br.ReadInt32();
-        var fileName = br.ReadString();*/
+
+
+
+
+
+
 
 
 
@@ -377,8 +434,6 @@ public class UdpComunicator : OneProcessServer
 
 
     private DateTime _serverLastPong { get; set; } 
-
-
     private async Task PingRemote(CancellationToken token)
     {
         try
@@ -398,7 +453,7 @@ public class UdpComunicator : OneProcessServer
             {
                 if ((DateTime.UtcNow - _serverLastPong) > ServerTimeout)
                 {
-                    MessageBox.Show("Server is not responding", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show("Server is not responding", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     Environment.Exit(0);
                 }
                 else
@@ -440,7 +495,7 @@ public class UdpComunicator : OneProcessServer
                     using var ms = new MemoryStream(packet.Buffer);
                     using var br = new PacketReader(ms);
                     var opCode = br.ReadOpCode();
-                    //log.LogWarning($"Received op code: {opCode}");
+                    log.LogWarning($"Received op code: {opCode}");
 
 
                     //===================================================================
@@ -448,6 +503,7 @@ public class UdpComunicator : OneProcessServer
                     //===================================================================
                     if (opCode == OpCode.PING)
                     {
+                        log.LogSuccess($"ping to server!");
                         SendingBuffer.Add(OpCode.PONG.AsArray());
                     }
                     else if (opCode == OpCode.PONG)
@@ -506,7 +562,7 @@ public class UdpComunicator : OneProcessServer
                         if(framesCount == 1)
                         {
                             var image = data.AsBitmapImage();
-                            OnCameraFrameOfUserUpdated?.Invoke(new(userId, image));
+                            OnCameraFrameReceived?.Invoke(new(userId, image));
                         }
                         else
                         {
@@ -526,7 +582,7 @@ public class UdpComunicator : OneProcessServer
                         {
                             var image = frameBuilder.AsByteArray().AsBitmapImage();
                             //log.LogWarning($"Received full camera frame!");
-                            OnCameraFrameOfUserUpdated?.Invoke(new (frameInfo.UserId, image));
+                            OnCameraFrameReceived?.Invoke(new (frameInfo.UserId, image));
                         }
                     }
                     else if (opCode == OpCode.PARTICIPANT_TURNED_CAMERA_ON)
@@ -569,7 +625,7 @@ public class UdpComunicator : OneProcessServer
                         {
                             var image = _screenCaptureBuilder.AsByteArray().AsBitmapImage();
                             log.LogWarning($"Received full camera frame!");
-                            OnScreenDemonstrationFrameOfUserUpdated?.Invoke(new(frameInfo.UserId, image));
+                            OnScreenCaptureFrameReceived?.Invoke(new(frameInfo.UserId, image));
                         }
                     }
                     //===================================================================
@@ -593,47 +649,42 @@ public class UdpComunicator : OneProcessServer
                         OnUserJoinedMeeting_UsingCode?.Invoke(new(meetingId));
                     }
                     //===================================================================
-                    //----MESSAGES
+                    //----FILES
                     //===================================================================
-/*                    else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE)
+                    else if (opCode == OpCode.PARTICIPANT_SEND_FILE_UPLOADED)
                     {
-                        var fromUser = br.ReadInt32();
-                        var toUser = br.ReadInt32();
-                        var numberOfClusters = br.ReadInt32();
+                        log.LogSuccess("RECEIVED FILE!");
+                        var senderName = br.ReadString();
                         var fileName = br.ReadString();
-
-
-                        var fileBuilder = new FileBuilder();
-                        fileBuilder.FileName = fileName;
-                        fileBuilder.ToUserId = toUser;
-                        fileBuilder.FromUserId = fromUser;
-                        fileBuilder.FrameBuilder = new(numberOfClusters);
-                        USer_FileBuilder[fromUser] = fileBuilder;
-                    }*/
-                    else if (opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
+                        var fileSize = br.ReadInt64();
+                        var fileId = br.ReadString();
+                        var fileModel = new FileModel(fileId, fileName, fileSize);
+                        OnFileUploaded?.Invoke(new(senderName, "You", fileModel));
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_SEND_FILE_UPLOADED_EVERYONE)
                     {
-/*                        var frameData = br.ReadUserFrame();
-                        var frames = USer_FileBuilder.GetValueOrDefault(frameData.UserId);
-
-                        if (frames != null)
-                        {
-                            frames.FrameBuilder.AddFrame(frameData.Position, frameData.Data);
-
-                            if (frames.FrameBuilder.IsFull)
-                            {
-                                var content = new FIleModel()
-                                {
-                                    FileName = frames.FileName,
-                                    Data = frames.FrameBuilder.AsByteArray()
-                                };
-                                var mes = new MessageInfo(frames.FromUserId, frames.ToUserId, content);
-
-                                OnMessageSent?.Invoke(mes);
-                            }
-                        }*/
+                        log.LogSuccess("RECEIVED FILE FOR EVERYONE!");
+                        var senderName = br.ReadString();
+                        var fileName = br.ReadString();
+                        var fileSize = br.ReadInt64();
+                        var idName = br.ReadString();
+                        var fileModel = new FileModel(idName, fileName, fileSize);
+                        OnFileUploaded?.Invoke(new(senderName, "Everyone", fileModel));
+                    }
+                    else if (opCode == OpCode.PARTICIPANT_SEND_FILE_DOWNLOAD)
+                    {
+                        var fileId = br.ReadString();
+                        var dataSize = br.ReadInt32();
+                        var data = br.ReadBytes(dataSize);
+                        OnFilePartDownloaded?.Invoke(new(fileId, data));
                     }
 
-                    else if(opCode == OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE)
+
+
+                    //===================================================================
+                    //----MESSAGES
+                    //===================================================================
+                    else if (opCode == OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE)
                     {
                         var fromUser = br.ReadString();
                         var message = br.ReadString();
@@ -646,7 +697,6 @@ public class UdpComunicator : OneProcessServer
                         var message = br.ReadString();
                         OnMessageSent?.Invoke(new(fromUser, toUser, message));
                     }
-
                     //===================================================================
                     //----GENERAL
                     //===================================================================
@@ -664,8 +714,9 @@ public class UdpComunicator : OneProcessServer
                     }
                     else if(opCode == OpCode.CHANGE_USER_NAME)
                     {
-                        var userInfo = br.ReadUserInfo();
-                        OnUserChangedName?.Invoke(new(userInfo.Id, userInfo.Username));
+                        var userId = br.ReadInt32();
+                        var username = br.ReadString();
+                        OnUserChangedName?.Invoke(new(userId, username));
                     }
                 }
                 catch(OperationCanceledException)

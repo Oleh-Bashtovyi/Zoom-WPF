@@ -8,13 +8,11 @@ using Zoom_UI.MVVM.Models;
 using Zoom_UI.Extensions;
 using System.Drawing;
 using Zoom_UI.ClientServer;
-using Microsoft.Win32;
 using System.IO;
 using Zoom_UI.Managers;
 using NAudio.Wave;
-using static Zoom_UI.ClientServer.UdpComunicator;
 using Zoom_Server.Net.Codes;
-using Microsoft.VisualBasic.ApplicationServices;
+using Zoom_UI.MVVM.Models.Frames;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
@@ -24,7 +22,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private UserViewModel _selectedParticipant;
     private UserViewModel _currentUser;
     private ViewModelNavigator _navigator;
-    private UdpComunicator _comunicator;
+    private ZoomClient _comunicator;
     private WebCameraCaptureManager _webCamera;
     private WebCameraId _selectedWebCam;
     private BitmapImage _screenDemonstrationImage;
@@ -203,7 +201,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             }
             else
             {
-                _webCamera.StartCapturing(SelectedWebCamDevice, 20);
+                _webCamera.StartCapturing(SelectedWebCamDevice);
             }
         }
         catch (Exception ex)
@@ -245,17 +243,16 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         _comunicator.Send_UserLeftMeeting(CurrentUser.Id, MeetingId);
     }
-    private void DownloadFile(FIleModel file)
+    private void DownloadFile(FileModel file)
     {
-        var openFolderDialog = new OpenFolderDialog();
+        var openFolderDialog = new Microsoft.Win32.OpenFolderDialog();
 
         openFolderDialog.Title = "Select path to save file";
 
         if (openFolderDialog.ShowDialog() ?? false)
         {
-            var savePath = Path.Combine(openFolderDialog.FolderName, file.FileName);
+            var savePath = System.IO.Path.Combine(openFolderDialog.FolderName, file.FileName);
 
-            File.WriteAllBytes(savePath, file.Data);
         }
     }
     private void SendMessage()
@@ -278,15 +275,36 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     }
     private void SendFile()
     {
-        var openFileDialog = new OpenFileDialog();
+        var openFileDialog = new Microsoft.Win32.OpenFileDialog();
 
         openFileDialog.Title = "Select file to send";
 
         if (openFileDialog.ShowDialog() ?? false)
         {
-            if(openFileDialog.FileName != null)
+
+            if (openFileDialog.FileName != null)
             {
-                _comunicator.Send_FileEveryone(CurrentUser.Id, MeetingId, openFileDialog.FileName);
+
+                var file = new FileInfo(openFileDialog.FileName);
+
+                if (file.Length < 128 * 1024 * 1024)
+                {
+                    var receiver = SelectedParticipant == _everyone ? null : SelectedParticipant;
+                    var sender = CurrentUser;
+                    var message = new MessageModel(sender.Username, receiver?.Username ?? "Everyone", DateTime.Now, null);
+                    var cfi = new ChatFileItem(file, sender, receiver, message, _comunicator, message, MeetingId);
+                    message.Content = cfi;
+                    cfi.Deleted += OnFileDeleted;
+                    cfi.Uploaded += OnFileUploaded;
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        ParticipantsMessages.Add(message);
+                    });
+                }
+                else
+                {
+                    MessageBox.Show("Max file size - 128 MB", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
         }
     }
@@ -301,6 +319,59 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
 
+
+
+    private void OnFileUploaded(ChatFileItem chatFileItem)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            chatFileItem.Uploaded -= OnFileUploaded;
+            chatFileItem.Deleted -= OnFileDeleted;
+            var mes = chatFileItem.Wraper;
+
+            for (var i = 0; i < ParticipantsMessages.Count; i++)
+            {
+                if (ParticipantsMessages[i] == mes)
+                {
+                    ParticipantsMessages.RemoveAt(i);
+
+                    var downloadChatFile = new ChatFileItemDownload(
+                        chatFileItem.FileSize, 
+                        chatFileItem.FileName, 
+                        chatFileItem.FileId, 
+                        MeetingId, 
+                        _comunicator);
+                    var newMessage = new MessageModel();
+                    newMessage.From = mes.From;
+                    newMessage.To = mes.To;
+                    newMessage.When = mes.When;
+                    newMessage.Content = downloadChatFile;
+                    ParticipantsMessages.Add(newMessage);
+                    break;
+                }
+            }
+        });
+    }
+
+
+
+
+
+
+
+
+    private void OnFileDeleted(ChatFileItem message)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            ParticipantsMessages.Remove(message.Wraper);
+        });
+    }
+
+
+
+
+
     private void AddNewMessage(string sender, string receiver, object content)
     {
         var message = new MessageModel();
@@ -310,6 +381,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         message.To = receiver;
         ParticipantsMessages.Add(message);
     }
+
     private void AddUserToMeeting(UserModel model)
     {
         var existingUser = Participants.FirstOrDefault(x => x.Id == model.Id);
@@ -516,7 +588,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             AddNewMessage(message.Sender, message.Receiver, message?.Content ?? string.Empty);
         });
     }
-    private void OnErrorReceived(ErrorModel model)
+    private void Comunicator_OnErrorReceived(ErrorModel model)
     {
         if(model.ErrorCode == ErrorCode.SCREEN_CAPTURE_DOES_NOT_ALLOWED)
         {
@@ -531,7 +603,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
         ShowAndLogError(model?.Message ?? string.Empty);
     }
-    private void OnSuccessReceived(SuccessModel model)
+    private void Comunicator_OnSuccessReceived(SuccessModel model)
     {
         if (model.SuccessCode == ScsCode.SCREEN_DEMONSTRATION_ALLOWED)
         {
@@ -625,29 +697,32 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         //===========================================================================
         _comunicator.OnUser_JoinedMeeting += Comunicator_OnUserJoinedMeeting;
         _comunicator.OnUser_LeftMeeting += Comunicator_OnUserLeftMeeting;
+        //file
+        //===========================================================================
+        _comunicator.OnFileUploaded += _comunicator_OnFileUploaded;
         //camera frames
         //===========================================================================
-        _comunicator.OnCameraFrameOfUserUpdated += Comunicator_OnCameraFrameReceived;
+        _comunicator.OnCameraFrameReceived += Comunicator_OnCameraFrameReceived;
         _comunicator.OnUser_TurnedCamera_OFF += Comunicator_OnCameraTurnedOff;
         _comunicator.OnUser_TurnedCamera_ON += Comunicator_OnCameraTurnedOn;
-        _webCamera.OnError += OnErrorReceived;
+        _webCamera.OnError += Comunicator_OnErrorReceived;
         _webCamera.OnCaptureStarted += WebCameraManager_OnCaptureStarted;
         _webCamera.OnCaptureFinished += WebCameraManager_OnCaptureFinished;
         _webCamera.OnImageCaptured += WebCameraManager_OnFrameCaptured;
         //screen capture
         //===========================================================================
-        _comunicator.OnScreenDemonstrationFrameOfUserUpdated += Comunicator_OnScreenFrameReceived;
+        _comunicator.OnScreenCaptureFrameReceived += Comunicator_OnScreenFrameReceived;
         _comunicator.OnUser_TurnedDemonstration_ON += Comunicator_OnScreenDemonstrationStarted;
         _comunicator.OnUser_TurnedDemonstration_OFF += Comunicator_OnScreenDemonstrationFinished;
-        _screenCaptureManager.OnError += OnErrorReceived;
+        _screenCaptureManager.OnError += Comunicator_OnErrorReceived;
         _screenCaptureManager.OnCaptureStarted += ScreenCaptureManager_OnCaptureStarted;
         _screenCaptureManager.OnCaptureFinished += ScreenCaptureManager_OnCaptureFinished;
         _screenCaptureManager.OnImageCaptured += ScreenCaptureManager_OnFrameCaptured;
         //messages
         //===========================================================================
         _comunicator.OnMessageSent += Comunicator_OnMessageReceived;
-        _comunicator.OnErrorReceived += OnErrorReceived;
-        _comunicator.OnSuccessReceived += OnSuccessReceived;
+        _comunicator.OnErrorReceived += Comunicator_OnErrorReceived;
+        _comunicator.OnSuccessReceived += Comunicator_OnSuccessReceived;
         _applicationData.ThemeManager.OnThemeChanged += NotifyThemeChanged;
         //audio
         //===========================================================================
@@ -660,35 +735,54 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
         _comunicator.Send_UserJoinedMeeting(CurrentUser.Id, _meetingId);
     }
+
+    private void _comunicator_OnFileUploaded(MessageInfo obj)
+    {
+        object? content = null;
+
+        if(obj.Content is FileModel fileModel)
+        {
+            content = new ChatFileItemDownload(fileModel.FileSize, fileModel.FileName, fileModel.Id, MeetingId, _comunicator);
+        }
+
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            AddNewMessage(obj.Sender, obj.Receiver, content ?? string.Empty);
+        });
+    }
+
     void ISeverEventSubsribable.UnsubscribeEvents()
     {
         //participating
         //===========================================================================
         _comunicator.OnUser_JoinedMeeting -= Comunicator_OnUserJoinedMeeting;
         _comunicator.OnUser_LeftMeeting -= Comunicator_OnUserLeftMeeting;
+        //file
+        //===========================================================================
+        _comunicator.OnFileUploaded -= _comunicator_OnFileUploaded;
         //camera frames
         //===========================================================================
-        _comunicator.OnCameraFrameOfUserUpdated -= Comunicator_OnCameraFrameReceived;
+        _comunicator.OnCameraFrameReceived -= Comunicator_OnCameraFrameReceived;
         _comunicator.OnUser_TurnedCamera_OFF -= Comunicator_OnCameraTurnedOff;
         _comunicator.OnUser_TurnedCamera_ON -= Comunicator_OnCameraTurnedOn;
-        _webCamera.OnError -= OnErrorReceived;
+        _webCamera.OnError -= Comunicator_OnErrorReceived;
         _webCamera.OnCaptureStarted -= WebCameraManager_OnCaptureStarted;
         _webCamera.OnCaptureFinished -= WebCameraManager_OnCaptureFinished;
         _webCamera.OnImageCaptured -= WebCameraManager_OnFrameCaptured;
         //screen capture
         //===========================================================================
-        _comunicator.OnScreenDemonstrationFrameOfUserUpdated -= Comunicator_OnScreenFrameReceived;
+        _comunicator.OnScreenCaptureFrameReceived -= Comunicator_OnScreenFrameReceived;
         _comunicator.OnUser_TurnedDemonstration_ON -= Comunicator_OnScreenDemonstrationStarted;
         _comunicator.OnUser_TurnedDemonstration_OFF -= Comunicator_OnScreenDemonstrationFinished;
-        _screenCaptureManager.OnError -= OnErrorReceived;
+        _screenCaptureManager.OnError -= Comunicator_OnErrorReceived;
         _screenCaptureManager.OnCaptureStarted -= ScreenCaptureManager_OnCaptureStarted;
         _screenCaptureManager.OnCaptureFinished -= ScreenCaptureManager_OnCaptureFinished;
         _screenCaptureManager.OnImageCaptured -= ScreenCaptureManager_OnFrameCaptured;
         //messages
         //===========================================================================
         _comunicator.OnMessageSent -= Comunicator_OnMessageReceived;
-        _comunicator.OnErrorReceived -= OnErrorReceived;
-        _comunicator.OnSuccessReceived -= OnSuccessReceived;
+        _comunicator.OnErrorReceived -= Comunicator_OnErrorReceived;
+        _comunicator.OnSuccessReceived -= Comunicator_OnSuccessReceived;
         _applicationData.ThemeManager.OnThemeChanged -= NotifyThemeChanged;
         //audio
         //===========================================================================

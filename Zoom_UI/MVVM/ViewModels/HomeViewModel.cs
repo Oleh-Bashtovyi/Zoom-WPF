@@ -18,7 +18,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     private string _plannedMeetingDescription;
     private DateTime _plannedMeetingDate = DateTime.Now;
     private UserViewModel _currentUser;
-    private UdpComunicator _comunicator;
+    private ZoomClient _comunicator;
     private ViewModelNavigator _navigator;
     private ApplicationData _applicationData;
 

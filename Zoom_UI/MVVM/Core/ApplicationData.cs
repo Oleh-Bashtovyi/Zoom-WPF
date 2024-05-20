@@ -16,7 +16,7 @@ namespace Zoom_UI.MVVM.Core;
 
 public class ApplicationData
 {
-    public UdpComunicator Comunicator { get; }
+    public ZoomClient Comunicator { get; }
     public WebCameraCaptureManager WebCamera {  get; }
     public ScreenCaptureManager ScreenCaptureManager { get; }
     public ThemeManager ThemeManager { get; }
@@ -27,7 +27,7 @@ public class ApplicationData
     public LoggerWithCollection LoggerWithCollection { get; }
 
     public ApplicationData(
-        UdpComunicator comunicator,
+        ZoomClient comunicator,
         WebCameraCaptureManager webCamera, 
         ThemeManager themeManager, 
         UserViewModel currentUser, 

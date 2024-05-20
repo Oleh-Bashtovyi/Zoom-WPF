@@ -1,35 +1,17 @@
 ﻿using System.Drawing;
 using System.Windows;
-using System.Windows.Media.Media3D;
 using WebEye.Controls.Wpf;
 using Zoom_Server.Net.Codes;
 using Zoom_UI.MVVM.Models;
-
 namespace Zoom_UI.Managers;
 
 
-public interface IImageCaptureService
-{
-    public event Action<Bitmap>? OnImageCaptured;
-    public event Action? OnCaptureStarted;
-    public event Action? OnCaptureFinished;
-    public event Action<ErrorModel>? OnError;
-
-    public Bitmap? CurrentBitmap { get; }
-
-    public void StartCapturing();
-    public void StopCapturing();
-}
-
-
-
-
-public class WebCameraCaptureManager //: IImageCaptureService
+public class WebCameraCaptureManager 
 {
     private CancellationTokenSource CameraTokenSource = new();
     public WebCameraControl WebCamera { get; private set; }
     public Bitmap? CurrentBitmap { get; private set; }
-
+    public int Fps {  get; private set; }
 
     public event Action<Bitmap?>? OnImageCaptured;
     public event Action<ErrorModel>? OnError;
@@ -37,9 +19,10 @@ public class WebCameraCaptureManager //: IImageCaptureService
     public event Action? OnCaptureFinished;
 
 
-    public WebCameraCaptureManager(WebCameraControl webCamera)
+    public WebCameraCaptureManager(WebCameraControl webCamera, int fps = 15)
     {
         WebCamera = webCamera;
+        Fps = fps;
         CameraTokenSource.Cancel();
     }
 
@@ -49,7 +32,7 @@ public class WebCameraCaptureManager //: IImageCaptureService
     }
 
 
-    public void StartCapturing(WebCameraId cameraId, int fps)
+    public void StartCapturing(WebCameraId cameraId)
     {
         if (CameraTokenSource != null && !CameraTokenSource.IsCancellationRequested)
         {
@@ -62,7 +45,7 @@ public class WebCameraCaptureManager //: IImageCaptureService
         Application.Current.Dispatcher.Invoke(() =>
         {
             WebCamera.StartCapture(cameraId);
-            Task.Run(async () => await CaptureProcess(fps, CameraTokenSource.Token));
+            Task.Run(async () => await CaptureProcess(Fps, CameraTokenSource.Token));
         });
     }
 

@@ -14,7 +14,7 @@ namespace Zoom_UI;
 
 public partial class App : Application
 {
-    private readonly UdpComunicator comunicator;
+    private readonly ZoomClient comunicator;
     private readonly ViewModelNavigator viewModelNavigator;
     private readonly WebCameraControl webCamera;
     private readonly ThemeManager themeManager;
@@ -66,5 +66,28 @@ public partial class App : Application
         MainWindow.Show();
         comunicator.Run();
         base.OnStartup(e);
+        //this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+    }
+
+
+
+
+
+
+    private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        HandleException(e.Exception);
+        e.Handled = true;
+        ShutdownApplication();
+    }
+
+    private void HandleException(Exception exception)
+    {
+        MessageBox.Show($"An unexpected error occurred: {exception.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
+
+    private void ShutdownApplication()
+    {
+        Current.Shutdown();
     }
 }

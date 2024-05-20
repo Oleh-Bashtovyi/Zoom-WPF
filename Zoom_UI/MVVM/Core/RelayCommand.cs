@@ -67,21 +67,21 @@ internal class PlannedMeetingRelayCommand : ICommand
 internal class FileRelayCommand : ICommand
 {
     public event EventHandler? CanExecuteChanged;
-    private readonly Action<FIleModel> _execute; 
+    private readonly Action<FileModel> _execute; 
 
 
-    public FileRelayCommand(Action<FIleModel> execute)
+    public FileRelayCommand(Action<FileModel> execute)
     {
         _execute = execute ?? throw new ArgumentNullException(nameof(execute)); ;
     }
 
     public bool CanExecute(object? parameter)
     {
-        return parameter is FIleModel;
+        return parameter is FileModel;
     }
 
     public void Execute(object? parameter)
     {
-        _execute(parameter as FIleModel);
+        _execute(parameter as FileModel);
     }
 }

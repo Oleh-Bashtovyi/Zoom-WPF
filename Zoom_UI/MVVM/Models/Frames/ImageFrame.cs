@@ -1,5 +1,5 @@
 ﻿using System.Windows.Media.Imaging;
-namespace Zoom_UI.MVVM.Models;
+namespace Zoom_UI.MVVM.Models.Frames;
 
 public class ImageFrame
 {

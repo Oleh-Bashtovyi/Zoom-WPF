@@ -74,10 +74,6 @@ public class ScreenCaptureManager
 
     private Bitmap Screenshot()
     {
-        // Get the size of the primary screen using SystemParameters
-/*        int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
-        int screenHeight = (int)SystemParameters.PrimaryScreenHeight;*/
-
         var screenshot = new Bitmap(CaptureWidth, CaptureHeight, PixelFormat.Format32bppArgb);
 
         using (Graphics graphics = Graphics.FromImage(screenshot))

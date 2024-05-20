@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using Zoom_Server.Extensions;
 using Zoom_Server.Logging;
@@ -8,23 +9,63 @@ namespace Zoom_Server.Net;
 #pragma warning disable CS8618 
 
 
-internal class UdpServer : OneProcessServer
+internal class ZoomServer
 {
+
+    private int _port;
+    private string _host;
+    private ILogger log;
+    public bool IsRunning { get; private set; } = false;
+
     private UdpClient udpServer;
+    private CancellationTokenSource _cts { get; set; } = new();
     private List<Client> Clients { get; } = new();
     private List<Meeting> Meetings { get; } = new();
 
 
 
-    public UdpServer(string host, int port, ILogger logger) : base(host, port, logger)
+    public ZoomServer(string host, int port, ILogger logger)
     {
+        _host = host;
+        _port = port;
+        log = logger;
         udpServer = new UdpClient(_port);
     }
 
-    protected override async Task Process(CancellationToken token)
-    {
-        Task.Run(() => PingClients(token));
 
+    #region Run\Stop
+    public void Run()
+    {
+        if (IsRunning)
+        {
+            throw new Exception("Server is already running!");
+        }
+
+        _cts = new();
+        Task.Run(() => PingClients(_cts.Token));
+        Task.Run(() => Process(_cts.Token));
+        FileManager.ClearTempFolder();
+        IsRunning = true;
+    }
+    public void Stop()
+    {
+        if (!IsRunning)
+        {
+            throw new Exception("Server is not running!");
+        }
+
+        _cts.Cancel();
+        IsRunning= false;
+    }
+    #endregion
+
+
+
+
+
+
+    protected async Task Process(CancellationToken token)
+    {
         try
         {
             while (!token.IsCancellationRequested)
@@ -32,7 +73,7 @@ internal class UdpServer : OneProcessServer
                 try
                 {
                     var receivedResult = await udpServer.ReceiveAsync(token);
-                    log.LogSuccess($"Server received some data! Data size: {receivedResult.Buffer.Length} bytes");
+                    //log.LogSuccess($"Server received some data! Data size: {receivedResult.Buffer.Length} bytes");
                     await HandleRequest(receivedResult, token);
                 }
                 catch (Exception)
@@ -112,10 +153,9 @@ internal class UdpServer : OneProcessServer
         {
             var opCode = (OpCode)br.ReadByte();
 
-
-            //===================================================================
+            //==================================================================================================
             //----PING-PONG
-            //===================================================================
+            //==================================================================================================
             if (opCode == OpCode.PING)
             {
                 await udpServer.SendAsync(OpCode.PONG.AsArray(), udpResult.RemoteEndPoint, token);
@@ -133,11 +173,10 @@ internal class UdpServer : OneProcessServer
                     }
                 }
             }
-
             //==================================================================================================
             //----AUDIO
             //==================================================================================================
-            if (opCode == OpCode.PARTICIPANT_SENT_AUDIO)
+            else if (opCode == OpCode.PARTICIPANT_SENT_AUDIO)
             {
                 var userId = br.ReadInt32();   
                 var meetingId = br.ReadInt32();
@@ -249,7 +288,7 @@ internal class UdpServer : OneProcessServer
                         bw.Write(userId);
                         bw.Write(numberOfCusters);
                         await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
-                        log.LogSuccess($"Received request for SCREEN frame creation: user:{userId} meeting:{meetingId} clusters:{numberOfCusters}");
+                        //log.LogSuccess($"Received request for SCREEN frame creation: user:{userId} meeting:{meetingId} clusters:{numberOfCusters}");
                     }
                 }
             }
@@ -261,7 +300,7 @@ internal class UdpServer : OneProcessServer
                 var dataLength = br.ReadInt32();
                 var data = br.ReadBytes(dataLength);
                 var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
-                log.LogSuccess($"Received request screen frame update. user:{userId} meeting:{meetingId} frame_position:{framePosition}");
+                //log.LogSuccess($"Received request screen frame update. user:{userId} meeting:{meetingId} frame_position:{framePosition}");
 
                 if (meeting != null && 
                     meeting.ScreenDemonstartor != null &&
@@ -284,7 +323,7 @@ internal class UdpServer : OneProcessServer
                 var userId = br.ReadInt32();
                 var meetingId = br.ReadInt32();
                 var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
-                log.LogWarning($"Received request for demonstration start. user: {userId}, meeting: {meetingId}");
+                //log.LogWarning($"Received request for demonstration start. user: {userId}, meeting: {meetingId}");
 
                 if (meeting != null)
                 {
@@ -338,7 +377,7 @@ internal class UdpServer : OneProcessServer
                 var userId = br.ReadInt32();
                 var meetingId = br.ReadInt32();
                 var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
-                log.LogWarning($"Received request to stop screen demonstration. Meeting: {meetingId}, User: {userId}");
+                //log.LogWarning($"Received request to stop screen demonstration. Meeting: {meetingId}, User: {userId}");
 
                 if (meeting != null && 
                     meeting.ScreenDemonstartor != null && 
@@ -410,125 +449,144 @@ internal class UdpServer : OneProcessServer
                     }
                 }
             }
-
-
-
-            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_REQUEST_EVERYONE)
+            //==================================================================================================
+            //----FILES
+            //==================================================================================================
+            else if(opCode == OpCode.PARTICIPANT_SEND_FILE_PART)
             {
-                var senderUserId = br.ReadInt32();
                 var meetingId = br.ReadInt32();
-                var localId = br.ReadInt32();
-                var numberOfClusters = br.ReadInt32();
+                //log.LogSuccess($"Meeting id: {meetingId}");
+                var fileId = br.ReadString();
+                //log.LogSuccess($"File id: {fileId}");
+                var cursorPosition = br.ReadInt64();
+                //log.LogSuccess($"Cursor position: {cursorPosition}");
+                var dataLength = br.ReadInt32();
+                var data = br.ReadBytes(dataLength);
+                FileManager.WriteDataToFile(data, cursorPosition, meetingId, fileId);
+            }
+            else if (opCode == OpCode.PARTICIPANT_SEND_FILE_LAST)
+            {
+                var senderId = br.ReadInt32();
+                var receiverId = br.ReadInt32();
                 var fileName = br.ReadString();
+
+                var meetingId = br.ReadInt32();
+                //log.LogSuccess($"Meeting id: {meetingId}");
+                var fileId = br.ReadString();
+                //log.LogSuccess($"File id: {fileId}");
+                var cursorPosition = br.ReadInt64();
+                //log.LogSuccess($"Cursor position: {cursorPosition}");
+                var dataLength = br.ReadInt32();
+                var data = br.ReadBytes(dataLength);
+                FileManager.WriteDataToFile(data, cursorPosition, meetingId, fileId);
+
+
                 var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
 
-                if(meeting != null)
+                if (meeting != null)
                 {
-                    var sender = meeting.Clients.FirstOrDefault(x => x.Id == senderUserId);
+                    var sender = meeting.Clients.FirstOrDefault(x => x.Id == senderId);
+                    var receiver = meeting.Clients.FirstOrDefault(x => x.Id == receiverId);
 
-                    if(sender != null)
+                    if(receiver != null)
                     {
-                        var frameBuilder = new FrameBuilder(numberOfClusters);
-                        var fileBuilder = new FileBuilder(frameBuilder, fileName, sender);
-                        meeting.FileBuilders.Add(fileBuilder);
-
-                        using (var ms = new MemoryStream())
+                        using (var ms = new MemoryStream(16))
                         using (var bw = new BinaryWriter(ms))
                         {
-                            bw.Write((byte)OpCode.PARTICIPANT_FILE_SEND_REQUEST);
-                            bw.Write(localId);
-                            bw.Write(fileBuilder.Id);
-                            await udpServer.SendAsync(ms.ToArray(), sender.IPAddress, token);
-                        }
-                    }
-                }
-            }
-
-
-            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_REQUEST)
-            {
-
-            }
-            else if(opCode == OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE)
-            {
-                var meetingId = br.ReadInt32();
-                var fileId = br.ReadInt32();
-                var position = br.ReadInt32();
-                var clusterSize = br.ReadInt32();
-                var data = br.ReadBytes(clusterSize);
-                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
-
-                if(meeting != null)
-                {
-                    var fileBuilder = meeting.FileBuilders.FirstOrDefault(x => x.Id == fileId);
-
-                    if(fileBuilder != null)
-                    {
-                        var frameBuilder = fileBuilder.FrameBuilder;
-                        frameBuilder.AddFrame(position, data);
-
-                        if (frameBuilder.IsFull)
-                        {
-                            using (var ms = new MemoryStream())
-                            using (var bw = new BinaryWriter(ms))
-                            {
-                                bw.Write((byte)OpCode.PARTICIPANT_FILE_SEND);            //OpCode
-                                bw.Write(fileBuilder.Sender.Username);                   //Sender: username
-                                bw.Write(fileBuilder.Receiver?.Username ?? string.Empty);//Reciever: username
-                                bw.Write(fileBuilder.Id);                                //fileId
-                                bw.Write(frameBuilder.GetCountOfBytes());                //file_length
-                                bw.Write(fileBuilder.FileName);                          //file_name
-
-                                if (fileBuilder.IsToEveryone)
-                                {
-                                    await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
-                                }
-                                else
-                                {
-                                    await udpServer.SendAsync(ms.ToArray(), fileBuilder.Sender.IPAddress, token);
-                                    await udpServer.SendAsync(ms.ToArray(), fileBuilder.Receiver!.IPAddress, token);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            else if(opCode == OpCode.PARTICIPANT_FILE_DOWNLOAD_START)
-            {
-                var meetingId = br.ReadInt32();
-                var fileId = br.ReadInt32();
-                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
-
-                if(meeting != null)
-                {
-                    var fileBuilder = meeting.FileBuilders.FirstOrDefault(x => x.Id == fileId);
-
-                    if(fileBuilder != null && fileBuilder.FrameBuilder.IsFull)
-                    {
-                        var frameBuilder = fileBuilder.FrameBuilder;
-                        var frames = frameBuilder.GetFrames();
-                        using (var ms = new MemoryStream())
-                        using (var bw = new BinaryWriter(ms))
-                        {
-                            bw.Write((byte)OpCode.PARTICIPANT_FILE_DOWNLOAD_START);
+                            bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_UPLOADED);
+                            bw.Write(sender?.Username ?? "Unknown user");
+                            bw.Write(fileName);
+                            bw.Write(FileManager.GetFileSize(meetingId, fileId));
                             bw.Write(fileId);
-                            await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
 
-                            for (int i = 0; i < frames.Length; i++)
-                            {
-                                var frame = frames[i];
-                                ms.Clear();
-                                bw.Write((byte)OpCode.PARTICIPANT_FILE_DOWNLOAD_FRAME);
-                                bw.Write(fileId);
-                                bw.Write(i);
-                                bw.Write(frame.Length);
-                                bw.Write(frame);
-                                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-                            }
+                            log.LogSuccess("FILE UPLOAD, SENDING TO RECEIVER");
+                            await udpServer.SendAsync(ms.ToArray(), receiver.IPAddress, token);
                         }
                     }
                 }
             }
+            else if (opCode == OpCode.PARTICIPANT_SEND_FILE_LAST_EVERYONE)
+            {
+                log.LogSuccess("SEND FILE LAST EVERYONE");
+                var senderId = br.ReadInt32();
+                log.LogSuccess($"Sender id: {senderId}");
+                var fileName = br.ReadString();
+                log.LogSuccess($"File name: {fileName}");
+                //=================================================
+                var meetingId = br.ReadInt32();
+                log.LogSuccess($"Meeting id: {meetingId}");
+                var fileId = br.ReadString();
+                log.LogSuccess($"File id: {fileId}");
+                var cursorPosition = br.ReadInt64();
+                log.LogSuccess($"Cursor position: {cursorPosition}");
+
+                var dataLength = br.ReadInt32();
+                var data = br.ReadBytes(dataLength);
+                FileManager.WriteDataToFile(data, cursorPosition, meetingId, fileId);
+
+                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+
+                if (meeting != null)
+                {
+                    var sender = meeting.Clients.FirstOrDefault(x => x.Id == senderId);
+
+                    if (sender != null)
+                    {
+                        using (var ms = new MemoryStream(16))
+                        using (var bw = new BinaryWriter(ms))
+                        {
+                            bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_UPLOADED_EVERYONE);
+                            bw.Write(sender.Username);
+                            bw.Write(fileName);
+                            log.LogSuccess("Receiveing file size...");
+                            bw.Write(FileManager.GetFileSize(meetingId, fileId));
+                            bw.Write(fileId);
+                            log.LogSuccess("FILE UPLOAD, SENDING TO PARTICIPANTS");
+                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        }
+                    }
+                }
+            }
+            else if (opCode == OpCode.PARTICIPANT_SEND_FILE_DELETE)
+            {
+                var meetingId = br.ReadInt32();
+                var fileId = br.ReadString();
+                log.LogError($"RECEIVED REQUEST TO DELETE FILE!\n--Meeting id: {meetingId}\n--File id: {fileId}\n");
+                FileManager.DeleteFile(meetingId, fileId);
+            }
+            else if (opCode == OpCode.PARTICIPANT_SEND_FILE_DOWNLOAD)
+            {
+                var meetingId = br.ReadInt32();
+                var fileId = br.ReadString();
+                var cursor = br.ReadInt64();
+                log.LogSuccess($"RECEIVED REQUEST TO DOWNLOAD FILE!\n--Meeting id: {meetingId}\n--File id: {fileId}\n--Cursor: {cursor}");
+
+                (var data, var bytesRead) = FileManager.GetFileData(meetingId, fileId, cursor);
+
+                using (var ms = new MemoryStream(16))
+                using (var bw = new BinaryWriter(ms))
+                {
+                    bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_DOWNLOAD);
+                    bw.Write(fileId);
+                    bw.Write(bytesRead);
+                    bw.Write(data);
+                    await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
+                }
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
             //==================================================================================================
@@ -568,43 +626,85 @@ internal class UdpServer : OneProcessServer
         }
     }
 
-
-
-
-
-
-
-
-    /*    private async Task Handle_QuestionCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-        {
-            var question = (QstCode)br.ReadByte();
-
-            if(question == QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE)
-            {
-                var meetingId = br.ReadInt32();
-                var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
-
-                if(meeting != null)
-                {
-                    using (var ms = new  MemoryStream())
-                    using (var bw = new BinaryWriter(ms))
-                    {
-                        var participants = meeting.Clients.ToArray();
-                        bw.Write((byte)OpCode.QUESTION_CHECKOUT);
-                        bw.Write((byte)QstCode.IS_CAMERAS_OF_USERS_STILL_ACTIVE);
-                        bw.Write(participants.Length);
-
-                        foreach (var participant in participants)
+    /*                    if (method == "CREATE")
                         {
-                            bw.Write(participant.Id);
-                            bw.Write(participant.IsCameraOn);
+                            var name = br.ReadString();
+
+                            var meeting = new MeetingData();
+                            Meetings.Add(meeting);
+
+                            FileManager.CreateMeetingCatalog(meeting.Id);
+
+                            meeting.AddClient(new MeetingUser(clientEP, name));
+
+                            using (var response_ms = new MemoryStream(16))
+                            using (var bw = new BinaryWriter(response_ms))
+                            {
+                                bw.Write("CONNECTED");
+                                bw.Write(meeting.Id);
+                                bw.Write(clientEP.Address.GetAddressBytes());
+                                bw.Write(clientEP.Port);
+
+                                await Instance.SendAsync(response_ms.ToArray(), clientEP);
+                            }
                         }
+                        else if (method == "CONNECT")
+                        {
+                            var meetingId = br.ReadInt64();
+                            var name = br.ReadString();
 
-                        await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-                    }
-                }
-            }
-        }*/
+                            var meeting = Meetings.Find(x => x.Id == meetingId);
+
+                            if (meeting != null)
+                            {
+                                meeting.AddClient(new MeetingUser(clientEP, name));
+
+                                using (var response_ms = new MemoryStream(8))
+                                using (var bw = new BinaryWriter(response_ms))
+                                {
+                                    bw.Write("CONNECTED");
+                                    bw.Write(meeting.Id);
+                                    bw.Write(clientEP.Address.GetAddressBytes());
+                                    bw.Write(clientEP.Port);
+
+                                    await Instance.SendAsync(response_ms.ToArray(), clientEP);
+                                }
+
+                                using (var response_ms = new MemoryStream(64))
+                                using (var bw = new BinaryWriter(response_ms))
+                                {
+                                    bw.Write("UPDATE_LIST_ONCONNECT");  // Header
+                                    bw.Write(meeting.IsScreenShared);
+                                    bw.Write(meeting.Clients.Count);    // Clients Count
+
+                                    for (var i = 0; i < meeting.Clients.Count; i++)
+                                    {
+                                        bw.Write(meeting.Clients[i].Name);                                      // Client Name
+                                        bw.Write(meeting.Clients[i].IpEndPoint.Address.GetAddressBytes());      // Client Address (4 bytes)
+                                        bw.Write(meeting.Clients[i].IpEndPoint.Port);                           // Client Port
+                                        bw.Write(meeting.Clients[i].IsUsingCamera);
+                                        bw.Write(meeting.Clients[i].IsUsingAudio);
+                                    }
+
+                                    await Instance.SendAsync(response_ms.ToArray(), clientEP);
+                                }
+
+                                using (var broadcast_ms = new MemoryStream(64))
+                                using (var bw = new BinaryWriter(broadcast_ms))
+                                {
+                                    bw.Write("UPDATE_LIST");            // Header
+                                    bw.Write(meeting.Clients.Count);    // Clients Count
+
+                                    for (var i = 0; i < meeting.Clients.Count; i++)
+                                    {
+                                        bw.Write(meeting.Clients[i].Name);                                      // Client Name
+                                        bw.Write(meeting.Clients[i].IpEndPoint.Address.GetAddressBytes());      // Client Address (4 bytes)
+                                        bw.Write(meeting.Clients[i].IpEndPoint.Port);                           // Client Port
+                                    }
+
+                                    await Instance.BroadcastAsync(broadcast_ms.ToArray(), meeting.Clients.Select(x => x.IpEndPoint).ToArray(), clientEP);
+                                }
+                            }*/
 
 
 
@@ -613,10 +713,8 @@ internal class UdpServer : OneProcessServer
 
 
 
-    private SemaphoreSlim semaphore = new(1);
 
-
-
+    private SemaphoreSlim semaphore { get; } = new(1);
     private async Task Handle_UserCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         using (var ms = new MemoryStream())
@@ -655,6 +753,8 @@ internal class UdpServer : OneProcessServer
         {
             var newMeeting = new Meeting();
             Meetings.Add(newMeeting);
+            FileManager.CreateMeetingCatalog(newMeeting.Id);
+
             bw.Write((byte)OpCode.CREATE_MEETING);
             bw.Write(newMeeting.Id);
             //log.LogWarning($"Sending new meeting info: id:{newMeeting}");
@@ -839,52 +939,5 @@ internal class UdpServer : OneProcessServer
             }
         }
     }
-/*    private async Task BroadcastFileToParticipants(FileBuilder fileBuilder, CancellationToken token)
-    {
-        IEnumerable<Client> participants;
-
-
-        if (fileBuilder.ToUserId > 0)
-        {
-            participants = Clients.Where(x => x.Id == fileBuilder.FromUserId || x.Id == fileBuilder.ToUserId);
-        }
-        else
-        {
-            var meetingId = Clients.FirstOrDefault(x => x.Id == fileBuilder.FromUserId)?.MeetingId ?? -1;
-
-            if(meetingId <= 0)
-            {
-                participants = [];
-            }
-            else
-            {
-                participants = Clients.Where(x => x.MeetingId ==  meetingId);   
-            }
-        }
-
-        using var pb = new PacketBuilder();
-        var frameBuilder = fileBuilder.FrameBuilder;
-        var frames = frameBuilder.GetFrames();
-
-        foreach (var participant in participants)
-        {
-            pb.Clear(); 
-            pb.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_CREATE);
-            pb.Write(fileBuilder.FromUserId);
-            pb.Write(fileBuilder.ToUserId);
-            pb.Write(frameBuilder.NumberOfFrames);
-            pb.Write(fileBuilder.FileName);
-            await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
-
-            for (var i = 0; i < frameBuilder.NumberOfFrames; i++)
-            {
-                pb.Clear();
-                pb.Write(OpCode.PARTICIPANT_FILE_SEND_FRAME_UPDATE);
-                pb.Write_UserFrame(fileBuilder.FromUserId, i, frames[i]);
-                await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
-                log.LogSuccess($"Broadcasted frame: {i} to user: {participant.Id}");
-            }
-        }
-    }*/
 }
 #pragma warning restore CS8618

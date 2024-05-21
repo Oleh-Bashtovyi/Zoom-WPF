@@ -20,7 +20,6 @@ public class ApplicationData
     public WebCameraCaptureManager WebCamera {  get; }
     public ScreenCaptureManager ScreenCaptureManager { get; }
     public ThemeManager ThemeManager { get; }
-    public UserViewModel CurrentUser {  get; }
     public ViewModelNavigator Navigator { get; }
     public MicrophoneCaptureManager MicrophoneCaptureManager { get; }
     public ObservableCollection<DebugMessage> ErrorsBuffer { get; }
@@ -30,7 +29,6 @@ public class ApplicationData
         ZoomClient comunicator,
         WebCameraCaptureManager webCamera, 
         ThemeManager themeManager, 
-        UserViewModel currentUser, 
         ViewModelNavigator navigator,
         ScreenCaptureManager screenCaptureManager,
         MicrophoneCaptureManager microphoneCaptureManager,
@@ -39,7 +37,6 @@ public class ApplicationData
         Comunicator = comunicator;
         WebCamera = webCamera;
         ThemeManager = themeManager;
-        CurrentUser = currentUser;
         Navigator = navigator;
         ScreenCaptureManager = screenCaptureManager;
         MicrophoneCaptureManager = microphoneCaptureManager;

@@ -27,9 +27,13 @@ public class LoggerWithCollection : ILogger
             {
                 _collection.Add(new(message));
 
-                while (_collection.Count > 100)
+
+                if(_collection.Count > 50)
                 {
-                    _collection.RemoveAt(_collection.Count - 1);
+                    while (_collection.Count > 20)
+                    {
+                        _collection.RemoveAt(_collection.Count - 1);
+                    }
                 }
             });
         }

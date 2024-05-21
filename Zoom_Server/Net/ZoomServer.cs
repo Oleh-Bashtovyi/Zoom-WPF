@@ -16,7 +16,6 @@ internal class ZoomServer
     private UdpClient udpServer;
     private CancellationTokenSource _cts  = new();
     public bool IsRunning { get; private set; } = false;
-    private List<Client> Clients { get; } = new();
     private List<Meeting> Meetings { get; } = new();
     private SemaphoreSlim Semaphor { get; } = new(1);
     public ZoomServer(string host, int port, ILogger logger)
@@ -35,7 +34,7 @@ internal class ZoomServer
         {
             _cts = new();
             FileManager.ClearTempFolder();
-            Task.Run(() => PingClients(_cts.Token));
+            Task.Run(() => PingProcess(_cts.Token));
             Task.Run(() => ReceivingProcess(_cts.Token));
             IsRunning = true;
         }
@@ -56,46 +55,7 @@ internal class ZoomServer
 
 
 
-    protected async Task ReceivingProcess(CancellationToken token)
-    {
-        try
-        {
-            while (!token.IsCancellationRequested)
-            {
-                var receivedResult = await udpServer.ReceiveAsync(token);
-                _ = Task.Run(() => HandleRequest(receivedResult, token));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            log.LogWarning("Server process was forcely cancelled!");
-        }
-        catch (Exception ex)
-        {
-            log.LogError(ex.ToString());
-        }
-        finally
-        {
-            log.LogWarning("Server receiving process stopped!");
-            Stop();
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    private async Task PingClients(CancellationToken token)
+    private async Task PingProcess(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
@@ -117,7 +77,7 @@ internal class ZoomServer
                         }
                         else
                         {
-                            await RemoveUserFromMeeting(meeting, client, token);
+                            await Handle_RemoveUserFromMeeting(meeting, client, token);
                             log.LogError($"User: {client.Id} was removed due to inactivity!");
                         }
                     }
@@ -131,7 +91,7 @@ internal class ZoomServer
             }
             catch (Exception ex)
             {
-                log.LogError("Error in pong process: " + ex.Message);
+                log.LogError("(PING PROCESS) - "+ ex.Message);
             }
             finally
             {
@@ -139,6 +99,44 @@ internal class ZoomServer
             }
         }
     }
+    private async Task ReceivingProcess(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                var receivedResult = await udpServer.ReceiveAsync(token);
+                //_ = Task.Run(() => HandleRequest(receivedResult, token));
+                await HandleRequest(receivedResult, token);
+            }
+            catch (OperationCanceledException)
+            {
+                log.LogWarning("(RECEIVING PROCESS) - " + "Server process was forcely cancelled!");
+                break;
+            }
+            catch (Exception ex)
+            {
+                log.LogError("(RECEIVING PROCESS) - " + ex.Message);
+            }
+        }
+
+        log.LogWarning("(RECEIVING PROCESS) - " + "Server receiving process stopped!");
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -153,7 +151,8 @@ internal class ZoomServer
     {
         try
         {
-            await Semaphor.WaitAsync(token).ConfigureAwait(false);
+            //await Semaphor.WaitAsync(token).ConfigureAwait(false);
+            await Semaphor.WaitAsync(token);
             using var buffMem = new MemoryStream(udpResult.Buffer);
             using var br = new BinaryReader(buffMem);
             var opCode = (OpCode)br.ReadByte();
@@ -168,15 +167,21 @@ internal class ZoomServer
             else if (opCode == OpCode.PONG)
             {
                 var clientEP = udpResult.RemoteEndPoint;
+                var handled = false;
 
-                foreach (var client in Clients)
+                foreach(var meeting in Meetings)
                 {
-                    if (client.IPAddress.Equals(clientEP))
+                    foreach (var client in meeting.Clients)
                     {
-                        client.UpdateLastPong();
-                        log.LogSuccess($"Received pong from user: {client.Id}, username: {client.Username}");
-                        break;
+                        if (client.IPAddress.Equals(clientEP))
+                        {
+                            client.UpdateLastPong();
+                            log.LogSuccess($"Received pong from user: {client.Id}, username: {client.Username}");
+                            handled = true;
+                            break;
+                        }
                     }
+                    if (handled) break;
                 }
             }
             //==================================================================================================
@@ -199,7 +204,7 @@ internal class ZoomServer
                         bw.Write(userId);
                         bw.Write(data.Length);
                         bw.Write(data);
-                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                     }
                 }
             }
@@ -235,7 +240,7 @@ internal class ZoomServer
                         bw.Write(framePosition);
                         bw.Write(dataLength);
                         bw.Write(data);
-                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                     }
                 }
             }
@@ -258,7 +263,7 @@ internal class ZoomServer
                         bw.Write(framePosition);
                         bw.Write(dataLength);
                         bw.Write(data);
-                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                     }
                 }
             }
@@ -278,6 +283,9 @@ internal class ZoomServer
                 var userId = br.ReadInt32();
                 var meetingId = br.ReadInt32();
                 var numberOfCusters = br.ReadInt32();
+                var framePosition = br.ReadInt32();
+                var dataLength = br.ReadInt32();
+                var data = br.ReadBytes(dataLength);
                 var meeting = Meetings.Where(x => x.Id == meetingId).FirstOrDefault();
 
                 if(meeting != null && 
@@ -290,7 +298,11 @@ internal class ZoomServer
                         bw.Write((byte)OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME);
                         bw.Write(userId);
                         bw.Write(numberOfCusters);
-                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        bw.Write(framePosition);
+                        bw.Write(dataLength);
+                        bw.Write(data);
+                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
+                        //log.LogError($"Received request to create frame. Clusters: {numberOfCusters}, User: {userId}, meeting: {meetingId}");
                     }
                 }
             }
@@ -315,9 +327,11 @@ internal class ZoomServer
                         bw.Write(framePosition);
                         bw.Write(dataLength);
                         bw.Write(data);
-                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
+                        //log.LogError($"Cluster {framePosition} was broadcasted!");
                     }
                 }
+                else log.LogError("ERROR: meeting does not exist or no demonstratio or wrong demonstrator!");
             }
             else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
             {
@@ -356,7 +370,7 @@ internal class ZoomServer
                             meeting.ScreenDemonstartor = user;
                             bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON);
                             bw.Write(userId);
-                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                            await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                         }
 
                         using (var ms = new MemoryStream())
@@ -391,7 +405,7 @@ internal class ZoomServer
                         log.LogError($"Screen demonstration was stoped by user: {userId}, meeting: {meetingId}");
                         bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF);
                         bw.Write(userId);
-                        await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                     }
                 }
             }
@@ -417,7 +431,7 @@ internal class ZoomServer
                             bw.Write((byte)OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE);
                             bw.Write(sender.Username);
                             bw.Write(message);
-                            await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                            await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                         }
                     }
                 }
@@ -523,7 +537,7 @@ internal class ZoomServer
                             bw.Write(fileName);
                             bw.Write(FileManager.GetFileSize(meetingId, fileId));
                             bw.Write(fileId);
-                            await BroadcastPacket(ms.ToArray(), meeting.Clients.Where(x => x.Id != senderId), token);
+                            await Broadcast_Packet(ms.ToArray(), meeting.Clients.Where(x => x.Id != senderId), token);
                         }
                     }
                 }
@@ -558,34 +572,19 @@ internal class ZoomServer
             {
                 await Handle_UserLeftMeeting(udpResult, br, token);
             }
-            else if (opCode == OpCode.PARTICIPANT_JOINED_MEETING)
-            {
-                await Handle_UserJoinedMeeting(udpResult, br, token);
-            }
             else if (opCode == OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING)
             {
                 await Handle_JoinUsingCode(udpResult, br, token);
             }
-            //==================================================================================================
-            //----GENERAL
-            //==================================================================================================
             else if (opCode == OpCode.CREATE_MEETING)
             {
                 await Handle_MeetingCreation(udpResult, br, token);
-            }
-            else if (opCode == OpCode.CREATE_USER)
-            {
-                await Handle_UserCreation(udpResult, br, token);
-            }
-            else if (opCode == OpCode.CHANGE_USER_NAME)
-            {
-                await Handle_UserRename(udpResult, br, token);
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) 
         {
-            log.LogError(ex.Message);
+            log.LogError("(CLIENT REQUEST HANDLING) - " + ex.Message);
         }
         finally
         {
@@ -602,86 +601,13 @@ internal class ZoomServer
 
 
 
-    private async Task Handle_UserCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-    {
-        using (var ms = new MemoryStream())
-        using (var bw = new BinaryWriter(ms))
-        {
-            var userName = br.ReadString();
-            var client = new Client(udpResult.RemoteEndPoint, userName);
-            Clients.Add(client);
-            bw.Write(OpCode.CREATE_USER.AsByte());
-            bw.Write(client.Id);
-            bw.Write(userName);
-            await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-        }
-    }
-    private async Task Handle_UserRename(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-    {
-        var userId = br.ReadInt32();
-        var newName = br.ReadString();
-        var user = Clients.FirstOrDefault(x => x.Id == userId);
 
-        if (user != null)
-        {
-            using (var ms = new MemoryStream())
-            using (var bw = new BinaryWriter(ms))
-            {
-                user.Username = newName;
-                bw.Write((byte)OpCode.CHANGE_USER_NAME);
-                bw.Write(userId);
-                bw.Write(newName);
-                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-            }
-        }
-    }
-    private async Task Handle_MeetingCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-    {
-        using (var ms = new MemoryStream())
-        using (var bw = new BinaryWriter(ms))
-        {
-            var newMeeting = new Meeting();
-            Meetings.Add(newMeeting);
-            FileManager.CreateMeetingCatalog(newMeeting.Id);
 
-            bw.Write((byte)OpCode.CREATE_MEETING);
-            bw.Write(newMeeting.Id);
-            await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-        }
-    }
-    private async Task Handle_JoinUsingCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-    {
-        var meetingId = br.ReadInt32();
-        var meeting   = Meetings.FirstOrDefault(x => x.Id == meetingId);   
 
-        if(meeting != null)
-        {
-            using (var ms = new MemoryStream())
-            using (var bw = new BinaryWriter(ms))
-            {
-                bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
-                bw.Write(meetingId);
-                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-            }
-        }
-    }
-    private async Task Handle_UserJoinedMeeting(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
-    {
-        var userId      = br.ReadInt32();
-        var meetingCode = br.ReadInt32();
-        var meeting     = Meetings.Where(x => x.Id == meetingCode).FirstOrDefault();
 
-        if (meeting != null)
-        {
-            var client = Clients.FirstOrDefault(x => x.Id == userId);
 
-            if (client != null)
-            {
-                meeting.AddParticipant(client);
-                await BroadCastParticipantJoin(meetingCode, token);
-            }
-        }
-    }
+
+
     private async Task Handle_UserLeftMeeting(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
     {
         var userId =    br.ReadInt32();
@@ -694,7 +620,7 @@ internal class ZoomServer
 
             if(user != null)
             {
-                await RemoveUserFromMeeting(meeting, user, token);
+                await Handle_RemoveUserFromMeeting(meeting, user, token);
             }
         }
     }
@@ -718,7 +644,7 @@ internal class ZoomServer
                     var code = newState ? (byte)OpCode.PARTICIPANT_TURNED_CAMERA_ON : (byte)OpCode.PARTICIPANT_TURNED_CAMERA_OFF;
                     bw.Write(code);
                     bw.Write(userId);
-                    await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                    await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                 }
             }
         }
@@ -743,12 +669,12 @@ internal class ZoomServer
                     var code = newState ? (byte)OpCode.PARTICIPANT_TURNED_MICROPHONE_ON : (byte)OpCode.PARTICIPANT_TURNED_MICROPHONE_OFF;
                     bw.Write(code);
                     bw.Write(userId);
-                    await BroadcastPacket(ms.ToArray(), meeting.Clients, token);
+                    await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
                 }
             }
         }
     }
-    private async Task RemoveUserFromMeeting(Meeting meeting, Client user, CancellationToken token)
+    private async Task Handle_RemoveUserFromMeeting(Meeting meeting, Client user, CancellationToken token)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
@@ -757,13 +683,53 @@ internal class ZoomServer
             meeting.RemoveParticipant(user);
             bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
             bw.Write(user.Id);
-            await BroadcastPacket(ms.ToArray(), participants, token);
+            await Broadcast_Packet(ms.ToArray(), participants, token);
         }
     }
 
 
 
-    private async Task BroadcastPacket(byte[] packet, IEnumerable<Client> clients, CancellationToken token)
+
+
+
+
+
+
+
+    private async Task Handle_JoinUsingCode(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    {
+        var username = br.ReadString();
+        var meetingId = br.ReadInt32();
+        var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
+        log.LogSuccess($"Received request to join using code: {meetingId}, username: {username}");
+
+        if (meeting != null)
+        {
+            var newUser = new Client(udpResult.RemoteEndPoint, username);
+            meeting.AddParticipant(newUser);
+            await Broadcast_UserJoinMeeting(meeting, newUser, token);
+        }
+        else
+        {
+            log.LogError($"No such meeting! exisiting meetings: {string.Join(',', Meetings.Select(x => x.Id))}");
+        }
+    }
+
+    private async Task Handle_MeetingCreation(UdpReceiveResult udpResult, BinaryReader br, CancellationToken token)
+    {
+        log.LogSuccess("received reqyest to create new meeting!");
+        var userName = br.ReadString();
+        var newMeeting = new Meeting();
+        var newUser = new Client(udpResult.RemoteEndPoint, userName);
+        Meetings.Add(newMeeting);
+        newMeeting.AddParticipant(newUser);
+        FileManager.CreateMeetingCatalog(newMeeting.Id);
+        await Broadcast_MeetingInfoToConnectedUser(newMeeting, newUser, token);
+    }
+
+
+
+    private async Task Broadcast_Packet(byte[] packet, IEnumerable<Client> clients, CancellationToken token)
     {
         foreach (var participant in clients)
         {
@@ -772,27 +738,52 @@ internal class ZoomServer
     }
 
 
-
-
-
-    private async Task BroadCastParticipantJoin(int meetingId, CancellationToken token)
+    private async Task Broadcast_UserJoinMeeting(Meeting meeting, Client user, CancellationToken token)
     {
-        var meeting = Meetings.FirstOrDefault(x => x.Id == meetingId);
-
-        if(meeting != null)
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter((ms)))
         {
-            using var pb = new PacketBuilder();
+            bw.Write((byte)OpCode.PARTICIPANT_JOINED_MEETING);
+            bw.Write(user.Id);
+            bw.Write(user.Username);
 
-            foreach (var participant in meeting.Clients)
+            await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
+        }
+        log.LogSuccess("Broadcasting info to user!");
+        await Broadcast_MeetingInfoToConnectedUser(meeting, user, token);
+    }
+
+
+    private async Task Broadcast_MeetingInfoToConnectedUser(Meeting meeting, Client user, CancellationToken token)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter((ms)))
+        {
+            bw.Write((byte)OpCode.USER_CONNECTED_TO_MEETING);
+            bw.Write(meeting.Id);
+
+            if(meeting.IsScreenDemonstrationActive)
             {
-                foreach (var participant_2 in meeting.Clients)
-                {
-                    pb.Clear();
-                    pb.Write(OpCode.PARTICIPANT_JOINED_MEETING);
-                    pb.Write_UserInfo(participant_2.Id, participant_2.Username);
-                    await udpServer.SendAsync(pb.ToArray(), participant.IPAddress, token);
-                }
+                bw.Write(true);
+                bw.Write(meeting.ScreenDemonstartor!.Id);
             }
+            else
+            {
+                bw.Write(false);
+            }
+
+            bw.Write(user.Id);
+            bw.Write(meeting.Clients.Count());
+
+            foreach(var client in meeting.Clients)
+            {
+                bw.Write(client.Id);
+                bw.Write(client.Username);
+                bw.Write(client.IsMicrophoneOn);
+                bw.Write(client.IsCameraOn);
+            }
+            log.LogSuccess("Sending info!!");
+            await udpServer.SendAsync(ms.ToArray(), user.IPAddress, token);
         }
     }
 }

@@ -18,7 +18,6 @@ public partial class App : Application
     private readonly ViewModelNavigator viewModelNavigator;
     private readonly WebCameraControl webCamera;
     private readonly ThemeManager themeManager;
-    private readonly UserViewModel currentUser;
     private readonly ApplicationData applicationData;
     private readonly WebCameraCaptureManager cameraCaptureManager;
     private readonly ScreenCaptureManager screenCaptureManager;
@@ -36,15 +35,13 @@ public partial class App : Application
         viewModelNavigator = new ViewModelNavigator();
         webCamera = new WebCameraControl();
         themeManager = new ThemeManager();
-        currentUser = new UserViewModel();
         cameraCaptureManager = new WebCameraCaptureManager(webCamera);
-        screenCaptureManager = new ScreenCaptureManager(1080, 1920, 3);
-        currentUser.IsCurrentUser = true;
+        screenCaptureManager = new ScreenCaptureManager(1080, 1920, 10);
         microphoneCaptureManager = new();
         applicationData = new(
             comunicator, 
             cameraCaptureManager, 
-            themeManager, currentUser, 
+            themeManager, 
             viewModelNavigator, 
             screenCaptureManager,
             microphoneCaptureManager,
@@ -55,8 +52,7 @@ public partial class App : Application
     {
         var mainViewModel = new MainViewModel(applicationData);
         viewModelNavigator.CurrentViewModel = new HomeViewModel(applicationData);
-        //viewModelNavigator.CurrentViewModel = new MeetingViewModel(applicationData, new(1));
-        currentUser.Username = "TEMP USERNAME~~~";
+        //viewModelNavigator.CurrentViewModel = new MeetingViewModel(applicationData, new(1, new("fsf", 1)));
 
         MainWindow = new MainWindow()
         {

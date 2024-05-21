@@ -66,10 +66,6 @@ public class MicrophoneCaptureManager
 
     private void WaveIn_DataAvailable(object? sender, WaveInEventArgs args)
     {
-/*        byte[] soundBytes = new byte[args.BytesRecorded];
-
-        Array.Copy(args.Buffer, soundBytes, args.BytesRecorded);*/
-
         SoundPacket.AddRange(args.Buffer);
 
         if(SoundPacket.Count >= MaxSoundPacketSize)

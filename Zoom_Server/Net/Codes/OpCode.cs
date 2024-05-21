@@ -2,27 +2,19 @@
 
 public enum OpCode : byte
 {
+    USER_CONNECTED_TO_MEETING,
     //General
     //=============================
     NONE,
     ERROR,
     SUCCESS,
-
-
-    QUESTION_CHECKOUT,
-    ACTIVITY_TIMEOUT_CHECKOUT,
     //Ping-Pong
     //=============================
     PING,
     PONG,
-    //Creation
-    //=============================
-    GET_USER_ID,
-    CHANGE_USER_NAME,
-    CREATE_USER,
-    CREATE_MEETING,
     //meeting joining
     //=============================
+    CREATE_MEETING,
     PARTICIPANT_USES_CODE_TO_JOIN_MEETING,
     //meeting process
     //=============================
@@ -56,7 +48,7 @@ public enum OpCode : byte
     PARTICIPANT_SEND_FILE_LAST_EVERYONE,
     PARTICIPANT_SEND_FILE_DELETE,
     PARTICIPANT_SEND_FILE_DOWNLOAD,
-
+    //=============================
     PARTICIPANT_SEND_FILE_UPLOADED,
     PARTICIPANT_SEND_FILE_UPLOADED_EVERYONE,
 }

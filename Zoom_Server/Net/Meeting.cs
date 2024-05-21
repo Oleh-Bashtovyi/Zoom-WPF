@@ -6,6 +6,7 @@ internal class Meeting
 
     internal int Id { get; }
     internal Client? ScreenDemonstartor { get; set; }
+    internal bool IsScreenDemonstrationActive => ScreenDemonstartor != null;
     internal IEnumerable<Client> Clients => _clients.AsEnumerable();
     internal DateTime LastActivity { get; private set; }
 

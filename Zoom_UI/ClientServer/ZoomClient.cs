@@ -11,6 +11,7 @@ using Zoom_Server.Net.Codes;
 using Zoom_UI.Extensions;
 using Zoom_UI.MVVM.Models;
 using Zoom_UI.MVVM.Models.Frames;
+using Zoom_UI.MVVM.ViewModels;
 namespace Zoom_UI.ClientServer;
 
 public class ZoomClient
@@ -33,24 +34,20 @@ public class ZoomClient
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
     private FrameBuilder _screenCaptureBuilder = new(0);
 
-
-    //GENERAL
-    //========================================================================
-    public event Action<UserModel>? OnUserCreated;
-    public event Action<UserModel>? OnUserChangedName;
-    public event Action<UserModel>? OnUserIdReceived;
     //RESPONSE
     //========================================================================
     public event Action<ErrorModel>? OnErrorReceived;
     public event Action<SuccessModel>? OnSuccessReceived;
-    //MEETING CREATION
-    //========================================================================
-    public event Action<MeetingInfo>? OnMeetingCreated;
-    public event Action<MeetingInfo>? OnUserJoinedMeeting_UsingCode;
     //PARTICIPATING
     //========================================================================
+    public event Action<MeetingInfo>? OnCurrentUser_JoinedToMeeting;
     public event Action<UserModel>? OnUser_JoinedMeeting;
     public event Action<UserModel>? OnUser_LeftMeeting;
+    //MESSAGES AND FILES
+    //========================================================================
+    public event Action<MessageInfo>? OnMessageSent;
+    public event Action<MessageInfo>? OnFileUploaded;
+    public event Action<FileFrame>? OnFilePartDownloaded;
     //CAMERA IMAGE
     //========================================================================
     public event Action<ImageFrame>? OnCameraFrameReceived;
@@ -61,18 +58,12 @@ public class ZoomClient
     public event Action<ImageFrame>? OnScreenCaptureFrameReceived;
     public event Action<UserModel>? OnUser_TurnedDemonstration_ON;
     public event Action<UserModel>? OnUser_TurnedDemonstration_OFF;
-    //MESSAGES
+    //AUDIO
     //========================================================================
-    public event Action<MessageInfo>? OnMessageSent;
-    //FILES
-    //========================================================================
-    public event Action<MessageInfo>? OnFileUploaded;
-    public event Action<FileFrame>? OnFilePartDownloaded;
-    //AUDION
-    //========================================================================
+    public event Action<AudioFrame>? OnUser_SentAudioFrame;
     public event Action<UserModel>? OnUser_TurnedMicrophone_ON;
     public event Action<UserModel>? OnUser_TurnedMicrophone_OFF;
-    public event Action<AudioFrame>? OnUser_SentAudioFrame;
+
 
 
 
@@ -84,7 +75,7 @@ public class ZoomClient
         _host = host;
         _port = port;
         _comunicator = new();
-        _comunicator.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+        //_comunicator.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
         _serverEndPoint = new(IPAddress.Parse(_host), _port);
         _serverTimeout = serverTimeout;
         log.LogSuccess("Listener initialized!");
@@ -102,7 +93,7 @@ public class ZoomClient
 
             Task.Run(() => SendingProcess(_cts.Token));
             Task.Run(() => ReceivingProcess(_cts.Token));
-            Task.Run(() => PingServer(_cts.Token));
+            Task.Run(() => PingProcess(_cts.Token));
             IsRunning = true;
         }
     }
@@ -111,6 +102,7 @@ public class ZoomClient
         if (IsRunning)
         {
             _cts.Cancel();
+            _cts.Dispose();
             IsRunning = false;
         }
     }
@@ -122,50 +114,32 @@ public class ZoomClient
 
 
 
-    public void Send_CreateMeeting()
-    {
-        SendingBuffer.Add(OpCode.CREATE_MEETING.AsArray());
-    }
-    public void Send_CreateUser(string username)
+    public void Send_CreateMeeting(string username)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
         {
-            bw.Write((byte)OpCode.CREATE_USER);
+            bw.Write((byte)OpCode.CREATE_MEETING);
             bw.Write(username);
             SendingBuffer.Add(ms.ToArray());
         }
     }
-    public void Send_ChangeName(int userId, string newUSername)
-    {
-        using (var ms = new MemoryStream())
-        using (var bw = new BinaryWriter(ms))
-        {
-            bw.Write((byte)OpCode.CHANGE_USER_NAME);
-            bw.Write(userId);
-            bw.Write(newUSername);
-            SendingBuffer.Add(ms.ToArray());
-        }
-    }
-    public void SendJoinMeetingUsingCode(int meetingCode)
+    public void Send_JoinMeetingUsingCode(int meetingCode, string username)
     {
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
         {
             bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
+            bw.Write(username);
             bw.Write(meetingCode);
-            //log.LogSuccess($"Sending request for meeting joining. Meetingcode: {meetingCode}");
             SendingBuffer.Add(ms.ToArray());
         }
-    }
-    public void Send_UserJoinedMeeting(int userId, int meetingId)
-    {
-        SendPacket(OpCode.PARTICIPANT_JOINED_MEETING, userId, meetingId);
     }
     public void Send_UserLeftMeeting(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_LEFT_MEETING, userId, meetingId);
     }
+    //=================================================================
     public void Send_UserTurnCamera_On(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_CAMERA_ON, userId, meetingId);
@@ -214,6 +188,7 @@ public class ZoomClient
             }
         }
     }
+    //=================================================================
     public void Send_UserTurnMicrophone_On(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_MICROPHONE_ON, userId, meetingId);
@@ -226,6 +201,7 @@ public class ZoomClient
     {
         SendPacket(OpCode.PARTICIPANT_SENT_AUDIO, userId, meetingId, audio);
     }
+    //=================================================================
     public void Send_UserTurnScreenCapture_On(int userId, int meetingId)
     {
         SendPacket(OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON, userId, meetingId);
@@ -237,30 +213,44 @@ public class ZoomClient
     public void Send_ScreenFrame(int userId, int meetingId, Bitmap bitmap)
     {
         var bytes = bitmap.AsByteArray();
-        var clusters = bytes.AsClusters(32768);
+        var clusters = bytes.AsClusters(64000);
 
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
         {
-            bw.Write((byte)OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME);
-            bw.Write(userId);
-            bw.Write(meetingId);
-            bw.Write(clusters.Count);
-            SendingBuffer.Add(ms.ToArray());
-
             for (int i = 0; i < clusters.Count; i++)
             {
-                ms.Clear();
-                bw.Write((byte)OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME);
-                bw.Write(userId);
-                bw.Write(meetingId);
-                bw.Write(i);
-                bw.Write(clusters[i].Length);
-                bw.Write(clusters[i]);
-                SendingBuffer.Add(ms.ToArray());
+                var cluster = clusters[i];
+
+                if (i == 0)
+                {
+                    ms.Clear();
+                    bw.Write((byte)OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME);
+                    bw.Write(userId);
+                    bw.Write(meetingId);
+                    bw.Write(clusters.Count);
+
+                    bw.Write(i);
+                    bw.Write(cluster.Length);
+                    bw.Write(cluster);
+
+                    SendingBuffer.Add(ms.ToArray());
+                }
+                else
+                {
+                    ms.Clear();
+                    bw.Write((byte)OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME);
+                    bw.Write(userId);
+                    bw.Write(meetingId);
+                    bw.Write(i);
+                    bw.Write(cluster.Length);
+                    bw.Write(cluster);
+                    SendingBuffer.Add(ms.ToArray());
+                }
             }
         }
     }
+    //=================================================================
     public void Send_MessageEveryone(int fromUserId, int meetingId, string message)
     {
         using (var ms = new MemoryStream())
@@ -286,30 +276,7 @@ public class ZoomClient
             SendingBuffer.Add(ms.ToArray());
         }
     }
-    private void SendPacket(OpCode code, int userId, int meetingId)
-    {
-        using (var ms = new MemoryStream())
-        using (var bw = new BinaryWriter(ms))
-        {
-            bw.Write((byte)code);
-            bw.Write(userId);
-            bw.Write(meetingId);
-            SendingBuffer.Add(ms.ToArray());
-        }
-    }
-    private void SendPacket(OpCode code, int userId, int meetingId, byte[] data)
-    {
-        using (var ms = new MemoryStream())
-        using (var bw = new BinaryWriter(ms))
-        {
-            bw.Write((byte)code);
-            bw.Write(userId);
-            bw.Write(meetingId);
-            bw.Write(data.Length);
-            bw.Write(data);
-            SendingBuffer.Add(ms.ToArray());
-        }
-    }
+    //=================================================================
     public bool Send_FileEveryone(int meetingId, int senderId, string path, string fileId, CancellationToken token)
     {
         using (var file = File.OpenRead(path))
@@ -406,6 +373,7 @@ public class ZoomClient
             SendingBuffer.Add(ms.ToArray());
         }
     }
+    //=================================================================
     public void DownloadFile(int meetingId,  string fileId, long byteIndex)
     {
         using (var ms = new MemoryStream(16))
@@ -418,13 +386,37 @@ public class ZoomClient
             SendingBuffer.Add(ms.ToArray());
         }
     }
+    private void SendPacket(OpCode code, int userId, int meetingId)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)code);
+            bw.Write(userId);
+            bw.Write(meetingId);
+            SendingBuffer.Add(ms.ToArray());
+        }
+    }
+    private void SendPacket(OpCode code, int userId, int meetingId, byte[] data)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)code);
+            bw.Write(userId);
+            bw.Write(meetingId);
+            bw.Write(data.Length);
+            bw.Write(data);
+            SendingBuffer.Add(ms.ToArray());
+        }
+    }
 
 
 
 
 
 
-    protected async Task SendingProcess(CancellationToken token)
+    private async Task SendingProcess(CancellationToken token)
     {
         log.LogSuccess("Sending process started!");
 
@@ -434,6 +426,7 @@ public class ZoomClient
             {
                 var packet = SendingBuffer.Take(token);
                 await _comunicator.SendAsync(packet, _serverEndPoint, token);
+                log.LogSuccess($"Packet with sieze: {packet.Length} was sent!");
             }
             catch (Exception ex)
             {
@@ -443,9 +436,7 @@ public class ZoomClient
             }
         }
     }
-
-
-    private async Task PingServer(CancellationToken token)
+    private async Task PingProcess(CancellationToken token)
     {
         try
         {
@@ -473,6 +464,9 @@ public class ZoomClient
             log.LogError(ex.Message);
         }
     }
+
+
+
 
 
 
@@ -603,7 +597,24 @@ public class ZoomClient
                 {
                     var userId = br.ReadInt32();
                     var framesCount = br.ReadInt32();
-                    _screenCaptureBuilder = new FrameBuilder(framesCount);
+
+                    var framePosition = br.ReadInt32();
+                    var dataLength = br.ReadInt32();
+                    var data = br.ReadBytes(dataLength);
+
+                    if (framesCount == 1)
+                    {
+                        var image = data.AsBitmapImage();
+                        OnScreenCaptureFrameReceived?.Invoke(new(userId, image));
+                    }
+                    else
+                    {
+                        var framBuilder = new FrameBuilder(framesCount);
+                        framBuilder.AddFrame(framePosition, data);
+                        _screenCaptureBuilder = framBuilder;
+                    }
+
+                    //log.LogWarning($"Received request to create screen frame of size: {framesCount} for user: {userId}");
                 }
                 else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME)
                 {
@@ -612,7 +623,7 @@ public class ZoomClient
                     var clusterSize = br.ReadInt32();
                     var data = br.ReadBytes(clusterSize);
                     _screenCaptureBuilder.AddFrame(position, data);
-
+                    //log.LogWarning($"RECEIVED FRAME: {position}, IS FULL: {_screenCaptureBuilder.IsFull}, USER: {userId}");
                     if (_screenCaptureBuilder.IsFull)
                     {
                         var image = _screenCaptureBuilder.AsByteArray().AsBitmapImage();
@@ -631,14 +642,61 @@ public class ZoomClient
                 else if (opCode == OpCode.PARTICIPANT_LEFT_MEETING)
                 {
                     var userId = br.ReadInt32();
-                    log.LogWarning($"User: {userId} leaving meeting!");
                     OnUser_LeftMeeting?.Invoke(new(userId, string.Empty));
                 }
-                else if (opCode == OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING)
+
+
+                else if (opCode == OpCode.USER_CONNECTED_TO_MEETING)
                 {
                     var meetingId = br.ReadInt32();
-                    OnUserJoinedMeeting_UsingCode?.Invoke(new(meetingId));
+                    var isScreenCaptureActive = br.ReadBoolean();
+                    var screenDemonstratorId = -1;
+
+                    if(isScreenCaptureActive)
+                    {
+                        screenDemonstratorId = br.ReadInt32();
+                    }
+
+                    var currentParticipantId = br.ReadInt32();
+                    var participantsCount = br.ReadInt32();
+                    var participants = new List<UserViewModel>();
+
+                    for (int i = 0; i < participantsCount; i++)
+                    {
+                        var participantId = br.ReadInt32();
+                        var participantName = br.ReadString();
+                        var isMicrophonOn = br.ReadBoolean();
+                        var isCameraOn = br.ReadBoolean();
+                        var participant = new UserViewModel()
+                        {
+                            Id = participantId,
+                            Username = participantName,
+                            IsCameraOn = isCameraOn,
+                            IsMicrophoneOn = isMicrophonOn,
+                        };
+                        participants.Add(participant);
+                    }
+
+                    var currentParticipant = participants.FirstOrDefault(x => x.Id == currentParticipantId);
+
+                    if (currentParticipant == null)
+                    {
+                        throw new Exception("Current participants is not defined!");
+                    }
+                    currentParticipant.IsCurrentUser = true;
+
+                    UserViewModel? screenDemonstrator = null;
+
+                    if (isScreenCaptureActive)
+                    {
+                        screenDemonstrator = participants.FirstOrDefault(x => x.Id == screenDemonstratorId);
+                    }
+
+                    var meetingInfo = new MeetingInfo(meetingId, currentParticipant, participants, screenDemonstrator);
+                    OnCurrentUser_JoinedToMeeting?.Invoke(meetingInfo);
                 }
+
+
                 //===================================================================
                 //----FILES
                 //===================================================================
@@ -682,27 +740,6 @@ public class ZoomClient
                     var toUser = br.ReadString();
                     var message = br.ReadString();
                     OnMessageSent?.Invoke(new(fromUser, toUser, message));
-                }
-                //===================================================================
-                //----GENERAL
-                //===================================================================
-                else if (opCode == OpCode.CREATE_MEETING)
-                {
-                    var id = br.ReadInt32();
-                    OnMeetingCreated?.Invoke(new(id));
-                }
-                else if (opCode == OpCode.CREATE_USER)
-                {
-                    var id = br.ReadInt32();
-                    var username = br.ReadString();
-                    log.LogWarning($"Received new user! Id: {id} username: {username}");
-                    OnUserCreated?.Invoke(new(id, username));
-                }
-                else if (opCode == OpCode.CHANGE_USER_NAME)
-                {
-                    var userId = br.ReadInt32();
-                    var username = br.ReadString();
-                    OnUserChangedName?.Invoke(new(userId, username));
                 }
             }
             catch (OperationCanceledException)

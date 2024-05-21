@@ -15,7 +15,7 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="80"/>
+            <RowDefinition Height="50"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -30,77 +30,20 @@
                 Grid.ColumnSpan="2"
                 Style="{StaticResource DefaultBorder}"
                 Background="{DynamicResource MainBrush}">
-            <StackPanel  Orientation="Horizontal" 
-                         HorizontalAlignment="Left" 
-                         Margin="5" >
-                <Border Width="60" 
-                        Height="60" 
-                        VerticalAlignment="Center" 
-                        Margin="10 0 0 0"
-                        Style="{StaticResource DefaultBorder}">
-                    <Image Source="pack://application:,,,/Assets/user.png" RenderOptions.BitmapScalingMode="HighQuality"/>
-                </Border>
-                <StackPanel Margin="10 0 0 0" Orientation="Vertical">
-                    <TextBlock Style="{StaticResource DefaultTextBlock}" TextDecorations="Underline" 
-                               HorizontalAlignment="Left"
-                               TextAlignment="Left"
-                               Text="{Binding CurrentUser.Username}" 
-                               Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                    <TextBlock>
-                    <Run Text="Connected:  " FontSize="18"/>
-                    <Run Text="{Binding IsConnected, Mode=OneWay}" FontSize="18">
-                        <Run.Style>
-                            <Style TargetType="Run">
-                                <Setter Property="Foreground"  Value="{DynamicResource OffButton}"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource InformativeBrush}"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Run.Style>
-                    </Run>
-                    </TextBlock>
-                </StackPanel>
-            </StackPanel>
         </Border>
 
         <Border Grid.Row="1" Style="{StaticResource DefaultBorder}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" 
-                           Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
-                           Style="{StaticResource DefaultTextBlock}" 
-                           FontWeight="Bold" Text="Id:" />
-                <TextBox DockPanel.Dock="Top"
-                         Margin="10 10 10 0"
-                         IsReadOnly="True"
-                         Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
-                         Text="{Binding UserId, Mode=OneWay }"
-                         Style="{StaticResource DefaultTextBox}" 
-                         HorizontalAlignment="Stretch"/>
+
                 
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource DefaultTextBlock}" FontWeight="Bold" Text="Username:" />
 
                 <TextBox DockPanel.Dock="Top"
                      Margin="10 10 10 0" 
-                     Text="{Binding UsernameChangeField, UpdateSourceTrigger=PropertyChanged}"
+                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                      Style="{StaticResource DefaultTextBox}" 
                      HorizontalAlignment="Stretch"/>
 
-                <Button DockPanel.Dock="Top" Margin="10 10 10 0" 
-                    FontSize="18" Height="35" 
-                    Content="Change name" 
-                    Visibility="{Binding IsConnected, Converter={StaticResource BoolToVisibilityConverter}}"
-                    Command="{Binding ChangeNameCommand}"/>
-
-                <Button DockPanel.Dock="Bottom"
-                        Command="{Binding ConnectToServerCommand}"
-                        Margin="10 10 10 20" 
-                        FontSize="18" 
-                        Height="35">
-                    <TextBlock Text="Connect" 
-                               Style="{DynamicResource DefaultTextBlock}"/>
-                </Button>
 
 
                 <Border/>
@@ -134,8 +77,7 @@
 
                 <Viewbox Margin="10 0"
                          HorizontalAlignment="Left" Width="150" DockPanel.Dock="Right">
-                    <DatePicker SelectedDate="{Binding PlannedMeetingDate, UpdateSourceTrigger=PropertyChanged}"
-                                IsEnabled="{Binding IsConnected}"/>
+                    <DatePicker SelectedDate="{Binding PlannedMeetingDate, UpdateSourceTrigger=PropertyChanged}"/>
                 </Viewbox>
 
                 <Border Margin="10" Style="{StaticResource DefaultBorder}" Padding="0">
@@ -144,7 +86,6 @@
                         FontSize="18"
                         VerticalAlignment="Stretch"
                         TextAlignment="Left"
-                        IsEnabled="{Binding IsConnected}"
                         Text="{Binding PlannedMeetingDescription, UpdateSourceTrigger=PropertyChanged}"/>
                 </Border>
             </DockPanel>
@@ -206,7 +147,6 @@
                     </Button>
 
                     <TextBox Text="{Binding MeetingCodeToJoin, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding IsConnected}"
                              Style="{StaticResource DefaultTextBox}" 
                              Margin="10 0 0 0" Width="100"/>
 

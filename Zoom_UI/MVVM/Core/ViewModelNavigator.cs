@@ -22,7 +22,7 @@ public class ViewModelNavigator
 
                 if(_currentViewModel is ISeverEventSubsribable newSubsribable)
                 {
-                    newSubsribable.Subscribe();
+                    newSubsribable.SubscribeEvents();
                 }
 
                 NotifyCurrentViewModelChanged();

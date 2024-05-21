@@ -128,9 +128,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
         #region Initial_data
         _applicationData = data;
-        CurrentUser = data.CurrentUser;
         ParticipantsSelection.Add(_everyone);
-        Participants.Add(CurrentUser);
+        Participants.Add(meeting.CurrentUser);
         SelectedParticipant = _everyone;
         _navigator = data.Navigator;
         _comunicator = data.Comunicator;
@@ -149,6 +148,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
                 WebCameras.Add(device);
             }
         });
+       
 
         foreach(var device in _applicationData.MicrophoneCaptureManager.GetInputDevices())
         {
@@ -166,7 +166,25 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _waveOut.Init(waveProvider);
         _waveOut.Play();
         #endregion
+
+        ScreenDemonstrator = meeting.ScreenDemonstrator;
+        if(ScreenDemonstrator != null)
+        {
+            IsDemonstrationActive = true;
+        }
+        CurrentUser = meeting.CurrentUser;
+
+        foreach(var participant in meeting.Participants)
+        {
+            AddUserToMeeting(participant);
+        }
     }
+
+
+
+
+
+
 
 
 
@@ -382,6 +400,25 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         ParticipantsMessages.Add(message);
     }
 
+
+    private void AddUserToMeeting(UserViewModel model)
+    {
+        var existingUser = Participants.FirstOrDefault(x => x.Id == model.Id);
+
+        if(existingUser != null)
+        {
+            existingUser.Username = model.Username; 
+        }
+        else
+        {
+            Participants.Add(model);
+
+            if (model.Id != CurrentUser.Id)
+            {
+                ParticipantsSelection.Add(model);
+            }
+        }
+    }
     private void AddUserToMeeting(UserModel model)
     {
         var existingUser = Participants.FirstOrDefault(x => x.Id == model.Id);
@@ -543,6 +580,8 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     }
     private void Comunicator_OnScreenFrameReceived(ImageFrame frame)
     {
+        //MessageBox.Show($"Demonstrator id: {frame.UserId}, Current user: {CurrentUser.Id}");
+
         if(frame.UserId != CurrentUser.Id)
         {
             Application.Current.Dispatcher.Invoke(() =>
@@ -691,15 +730,12 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     //EVENTS SUBSCRIPTION
     //===========================================================
     private void NotifyThemeChanged(string newTheme) => OnPropertyChanged(nameof(CurrentTheme));
-    void ISeverEventSubsribable.Subscribe()
+    void ISeverEventSubsribable.SubscribeEvents()
     {
         //participating
         //===========================================================================
         _comunicator.OnUser_JoinedMeeting += Comunicator_OnUserJoinedMeeting;
         _comunicator.OnUser_LeftMeeting += Comunicator_OnUserLeftMeeting;
-        //file
-        //===========================================================================
-        _comunicator.OnFileUploaded += _comunicator_OnFileUploaded;
         //camera frames
         //===========================================================================
         _comunicator.OnCameraFrameReceived += Comunicator_OnCameraFrameReceived;
@@ -723,6 +759,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnMessageSent += Comunicator_OnMessageReceived;
         _comunicator.OnErrorReceived += Comunicator_OnErrorReceived;
         _comunicator.OnSuccessReceived += Comunicator_OnSuccessReceived;
+        _comunicator.OnFileUploaded += _comunicator_OnFileUploaded;
         _applicationData.ThemeManager.OnThemeChanged += NotifyThemeChanged;
         //audio
         //===========================================================================
@@ -732,8 +769,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnUser_SentAudioFrame += Comunicator_SoundReceived;
         _comunicator.OnUser_TurnedMicrophone_ON += Comunicator_UserTurnedMicrophoneOn;
         _comunicator.OnUser_TurnedMicrophone_OFF += Comunicator_UserTurnedMicrophoneOff;
-
-        _comunicator.Send_UserJoinedMeeting(CurrentUser.Id, _meetingId);
     }
 
     private void _comunicator_OnFileUploaded(MessageInfo obj)

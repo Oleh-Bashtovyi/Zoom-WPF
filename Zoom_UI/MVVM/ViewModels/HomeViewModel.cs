@@ -17,18 +17,22 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     private string _usernameChangeField;
     private string _plannedMeetingDescription;
     private DateTime _plannedMeetingDate = DateTime.Now;
-    private UserViewModel _currentUser;
     private ZoomClient _comunicator;
     private ViewModelNavigator _navigator;
     private ApplicationData _applicationData;
 
 
-    public bool IsConnected => CurrentUser?.Id > 0;
-    public string UserId => (CurrentUser?.Id ?? 0) <= 0 ? string.Empty : CurrentUser!.Id.ToString();
-    public string UsernameChangeField
+    public bool IsConnected { get; private set; }
+
+    public bool UsernameIsNotEmpty => !string.IsNullOrWhiteSpace(Username);
+    public string Username
     {
         get => _usernameChangeField;
-        set => SetAndNotifyPropertyChanged(ref _usernameChangeField, value);
+        set
+        {
+            SetAndNotifyPropertyChanged(ref _usernameChangeField, value);
+            OnPropertyChanged(nameof(UsernameIsNotEmpty));
+        }
     }
     public string PlannedMeetingDescription
     {
@@ -45,23 +49,17 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         get => _plannedMeetingDate;
         set => SetAndNotifyPropertyChanged(ref _plannedMeetingDate, value);
     }
-    public UserViewModel CurrentUser
-    {
-        get => _currentUser;
-        set => SetAndNotifyPropertyChanged(ref _currentUser, value);
-    }
+
     
     public ObservableCollection<PlannedMeetingViewModel> PlannedMeetings { get; } = new();
 
-    public string GetScheduleFile => $"./schedule_{CurrentUser.Id}.txt";
+    public string GetScheduleFile => $"./schedule.txt";
 
 
     public ICommand ConnectToServerCommand { get; }
     public ICommand CreateNewMeetingCommand { get; }
     public ICommand JoinMeetingUsingCodeCommand { get; }
     public ICommand CreateNewPlannedMeetingCommand { get; }
-    public ICommand JoinPlannedMeetingCommand { get; }
-    public ICommand ChangeNameCommand { get; }
     public ICommand RemovePlannedMeetingCommand {  get; }
 
 
@@ -70,53 +68,86 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         _applicationData = data;
         _comunicator = data.Comunicator;
         _navigator = data.Navigator;
-        CurrentUser = data.CurrentUser;
-        CurrentUser.IsCurrentUser = true;
-        MeetingCodeToJoin = "1002";
-        
+        MeetingCodeToJoin = "1001";
 
-        ChangeNameCommand = new RelayCommand(
-            () => _comunicator.Send_ChangeName(CurrentUser.Id, UsernameChangeField),
-            () => IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
-
-        ConnectToServerCommand = new RelayCommand(
-            () => _comunicator.Send_CreateUser(UsernameChangeField),
-            () => !IsConnected && !string.IsNullOrWhiteSpace(UsernameChangeField));
 
         CreateNewMeetingCommand = new RelayCommand(
-            () => _comunicator.Send_CreateMeeting(),
-            () => IsConnected
-            );
+            () => _comunicator.Send_CreateMeeting(Username),
+            () => UsernameIsNotEmpty);
+
+/*        CreateNewMeetingCommand = new RelayCommand(
+    () => _comunicator_OnCurrentUser_JoinedToMeeting(new(12, new("fsfsf",1001))),
+    () => UsernameIsNotEmpty);
+*/
+
         JoinMeetingUsingCodeCommand = new RelayCommand(
             () => 
             { 
                 if(int.TryParse(MeetingCodeToJoin, out int code))
                 {
-                    _comunicator.SendJoinMeetingUsingCode(code); 
+                    _comunicator.Send_JoinMeetingUsingCode(code, Username); 
+                }
+                else
+                {
+                    MessageBox.Show("Can not parse string!");
                 }
             },
-            () => IsConnected && !string.IsNullOrWhiteSpace(MeetingCodeToJoin)
-            );
+            () => UsernameIsNotEmpty && !string.IsNullOrWhiteSpace(MeetingCodeToJoin));
+
         CreateNewPlannedMeetingCommand = new RelayCommand(
             CreateNewPlannedMeeting,
-            () => IsConnected && !string.IsNullOrEmpty(PlannedMeetingDescription)
-            );
+            () => !string.IsNullOrEmpty(PlannedMeetingDescription));
+
+        Username = "My user";
         RemovePlannedMeetingCommand = new PlannedMeetingRelayCommand(RemovePlannedMeeting);
 
-        if (IsConnected)
+
+        if (File.Exists(GetScheduleFile))
         {
-            if (File.Exists(GetScheduleFile))
-            {
-                ReadSchedules(GetScheduleFile);
-            }
-            else
-            {
-                File.Create(GetScheduleFile);
-            }
+            ReadSchedules(GetScheduleFile);
         }
-        OnPropertyChanged(nameof(IsConnected));
+        else
+        {
+            File.Create(GetScheduleFile);
+        }
     }
 
+
+
+
+
+
+
+
+
+
+    private void ReadSchedules(string file)
+    {
+        var lines = File.ReadAllLines(file);
+
+        PlannedMeetings.Clear();
+
+        for (int i = 0; i < lines.Length; i += 2)
+        {
+            if (i + 1 < lines.Length)
+            {
+                var description = lines[i];
+                var dateStrin = lines[i + 1];
+
+                if (DateTime.TryParse(dateStrin, out DateTime date))
+                {
+                    PlannedMeetings.Add(new(date, description));
+                }
+            }
+        }
+    }
+
+    private void CreateNewPlannedMeeting()
+    {
+        var plan = new PlannedMeetingViewModel(PlannedMeetingDate, PlannedMeetingDescription);
+        PlannedMeetings.Add(plan);
+        WriteSchedule(GetScheduleFile);
+    }
 
     private void RemovePlannedMeeting(PlannedMeetingViewModel model)
     {
@@ -128,32 +159,11 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         }
     }
 
-
-    private void ReadSchedules(string file)
-    {
-        var lines = File.ReadAllLines(file);
-
-        PlannedMeetings.Clear();
-
-        for (int i = 0; i < lines.Length; i += 2)
-        {
-            if(i + 1 < lines.Length)
-            {
-                var description = lines[i];
-                var dateStrin = lines[i + 1];
-
-                if(DateTime.TryParse(dateStrin, out DateTime date))
-                {
-                    PlannedMeetings.Add(new(date, description));
-                }
-            }
-        }
-    }
     private void WriteSchedule(string file)
     {
         using var stream = new StreamWriter(file);
 
-        foreach(var plan in PlannedMeetings)
+        foreach (var plan in PlannedMeetings)
         {
             stream.WriteLine(plan.Description);
             stream.WriteLine(plan.PlannedTime.Date);
@@ -162,65 +172,21 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 
 
 
-
-
-
-    private void CreateNewPlannedMeeting()
+    void ISeverEventSubsribable.SubscribeEvents()
     {
-        var plan = new PlannedMeetingViewModel(PlannedMeetingDate, PlannedMeetingDescription);
-        PlannedMeetings.Add(plan);
-        WriteSchedule(GetScheduleFile);
-    }
-
-
-    void ISeverEventSubsribable.Subscribe()
-    {
-        _comunicator.OnUserCreated += OnUserConnected;
-        _comunicator.OnUserChangedName += OnUserNameChanged;
-        _comunicator.OnMeetingCreated += OnMeetingCreated;
-        _comunicator.OnUserJoinedMeeting_UsingCode += OnMeetingCreated;
-    }
-
-    private void OnMeetingCreated(MeetingInfo meeting)
-    {
-        _navigator.CurrentViewModel = new MeetingViewModel(_applicationData, meeting);
+        _comunicator.OnCurrentUser_JoinedToMeeting += _comunicator_OnCurrentUser_JoinedToMeeting;
     }
 
     void ISeverEventSubsribable.UnsubscribeEvents()
     {
-        _comunicator.OnUserCreated -= OnUserConnected;
-        _comunicator.OnUserChangedName -= OnUserNameChanged;
-        _comunicator.OnMeetingCreated -= OnMeetingCreated;
-        _comunicator.OnUserJoinedMeeting_UsingCode -= OnMeetingCreated;
+        _comunicator.OnCurrentUser_JoinedToMeeting -= _comunicator_OnCurrentUser_JoinedToMeeting;
     }
 
-
-    private void OnUserConnected(UserModel user)
+    private void _comunicator_OnCurrentUser_JoinedToMeeting(MeetingInfo meeting)
     {
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            CurrentUser.Username = user.Username;
-            CurrentUser.Id = user.Id;
-            OnPropertyChanged(nameof(UserId));
-            OnPropertyChanged(nameof(IsConnected));
-            OnPropertyChanged(nameof(MeetingCodeToJoin));
-            WriteSchedule(GetScheduleFile);
-        });
+        //MessageBox.Show($"SWITHCING VIEW... meeting: {meeting}, currentUSer: {meeting.CurrentUser}");
+        _navigator.CurrentViewModel = new MeetingViewModel(_applicationData, meeting);
     }
-
-    private void OnUserNameChanged(UserModel user)
-    {
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            CurrentUser.Username = user.Username;
-            MessageBox.Show("Name changed!");
-        });
-    }
-
-
-
-
-
 }
 
 

@@ -2,6 +2,6 @@
 
 internal interface ISeverEventSubsribable
 {
-    internal void Subscribe();
+    internal void SubscribeEvents();
     internal void UnsubscribeEvents();
 }

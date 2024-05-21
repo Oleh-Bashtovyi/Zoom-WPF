@@ -34,31 +34,3 @@ public class PacketBuilder : BinaryWriter
         return _stream.ToArray();
     }
 }
-
-
-
-
-public class PacketReader : BinaryReader
-{
-    private MemoryStream _stream;
-
-    public PacketReader(MemoryStream stream) : base(stream)
-    {
-        _stream = stream;
-    }
-
-
-    public record UserFrame(int UserId, int Position, byte[] Data);
-    /// <summary>
-    /// Read bytes as: User_Id-(int), Cluster_Position-(int), Cluster_Size-(int) and Cluster-(bytes)
-    /// </summary>
-    /// <returns></returns>
-    public UserFrame ReadUserFrame()
-    {
-        var userId = ReadInt32();
-        var position = ReadInt32();
-        var clusterSize = ReadInt32();
-        var cluster = ReadBytes(clusterSize);
-        return new UserFrame(userId, position, cluster);
-    }
-}

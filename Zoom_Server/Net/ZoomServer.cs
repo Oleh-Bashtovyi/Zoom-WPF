@@ -8,6 +8,7 @@ namespace Zoom_Server.Net;
 
 internal class ZoomServer
 {
+    private readonly TimeSpan _clientsInactivityTimeout = TimeSpan.FromSeconds(25);
 
     private int _port;
     private string _host;
@@ -17,7 +18,7 @@ internal class ZoomServer
     public bool IsRunning { get; private set; } = false;
     private List<Client> Clients { get; } = new();
     private List<Meeting> Meetings { get; } = new();
-    private SemaphoreSlim semaphore { get; } = new(1);
+    private SemaphoreSlim Semaphor { get; } = new(1);
     public ZoomServer(string host, int port, ILogger logger)
     {
         _host = host;
@@ -28,28 +29,25 @@ internal class ZoomServer
 
 
     #region Run\Stop
-    public void Run()
-    {
-        if (IsRunning)
-        {
-            throw new Exception("Server is already running!");
-        }
-
-        _cts = new();
-        Task.Run(() => PingClients(_cts.Token));
-        Task.Run(() => Process(_cts.Token));
-        FileManager.ClearTempFolder();
-        IsRunning = true;
-    }
-    public void Stop()
+    public void Start()
     {
         if (!IsRunning)
         {
-            throw new Exception("Server is not running!");
+            _cts = new();
+            FileManager.ClearTempFolder();
+            Task.Run(() => PingClients(_cts.Token));
+            Task.Run(() => ReceivingProcess(_cts.Token));
+            IsRunning = true;
         }
-
-        _cts.Cancel();
-        IsRunning= false;
+    }
+    public void Stop()
+    {
+        if (IsRunning)
+        {
+            _cts.Cancel();
+            _cts.Dispose();
+            IsRunning = false;
+        }
     }
     #endregion
 
@@ -58,25 +56,15 @@ internal class ZoomServer
 
 
 
-    protected async Task Process(CancellationToken token)
+    protected async Task ReceivingProcess(CancellationToken token)
     {
         try
         {
             while (!token.IsCancellationRequested)
             {
-                try
-                {
-                    var receivedResult = await udpServer.ReceiveAsync(token);
-                    await HandleRequest(receivedResult, token);
-                }
-                catch (Exception)
-                {
-                }
+                var receivedResult = await udpServer.ReceiveAsync(token);
+                _ = Task.Run(() => HandleRequest(receivedResult, token));
             }
-        }
-        catch (TaskCanceledException)
-        {
-            log.LogWarning("Server process was forcely cancelled!");
         }
         catch (OperationCanceledException)
         {
@@ -85,12 +73,11 @@ internal class ZoomServer
         catch (Exception ex)
         {
             log.LogError(ex.ToString());
-            await Console.Out.WriteLineAsync("Exception on server");
         }
         finally
         {
-            log.LogWarning("Server was stopped!");
-            await Console.Out.WriteLineAsync("Server stopped");
+            log.LogWarning("Server receiving process stopped!");
+            Stop();
         }
     }
 
@@ -98,26 +85,35 @@ internal class ZoomServer
 
 
 
+
+
+
+
+
+
+
+
+
+
     private async Task PingClients(CancellationToken token)
     {
-        try
+        while (!token.IsCancellationRequested)
         {
-            var timeout = TimeSpan.FromSeconds(10);
-
-            while (!token.IsCancellationRequested)
+            try
             {
-                for (int i = 0; i < Meetings.Count; i++)
+                await Task.Delay(5000, token);
+                
+                await Semaphor.WaitAsync(token).ConfigureAwait(false); ;
+
+                foreach(var meeting in Meetings)
                 {
-                    var meeting = Meetings[i];
                     var clients = meeting.Clients.ToArray();
 
-                    for (int j = 0; j < clients.Length; j++)
+                    foreach(var client in clients)
                     {
-                        var client = clients[j];
-
-                        if (client.CheckLastPong(timeout))
+                        if (client.CheckLastPong(_clientsInactivityTimeout))
                         {
-                            await udpServer.SendAsync(OpCode.PING.AsArray(), client.IPAddress);
+                            await udpServer.SendAsync(OpCode.PING.AsArray(), client.IPAddress, token);
                         }
                         else
                         {
@@ -126,11 +122,22 @@ internal class ZoomServer
                         }
                     }
                 }
+
                 log.LogWarning($"Pong processed!");
-                await Task.Delay(5000, token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                log.LogError("Error in pong process: " + ex.Message);
+            }
+            finally
+            {
+                Semaphor.Release();
             }
         }
-        catch { }
     }
 
 
@@ -144,11 +151,11 @@ internal class ZoomServer
 
     private async Task HandleRequest(UdpReceiveResult udpResult, CancellationToken token)
     {
-        using var bufMemory = new MemoryStream(udpResult.Buffer);
-        using var br = new BinaryReader(bufMemory);
-
         try
         {
+            await Semaphor.WaitAsync(token).ConfigureAwait(false);
+            using var buffMem = new MemoryStream(udpResult.Buffer);
+            using var br = new BinaryReader(buffMem);
             var opCode = (OpCode)br.ReadByte();
 
             //==================================================================================================
@@ -167,6 +174,7 @@ internal class ZoomServer
                     if (client.IPAddress.Equals(clientEP))
                     {
                         client.UpdateLastPong();
+                        log.LogSuccess($"Received pong from user: {client.Id}, username: {client.Username}");
                         break;
                     }
                 }
@@ -574,9 +582,14 @@ internal class ZoomServer
                 await Handle_UserRename(udpResult, br, token);
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex) 
         {
             log.LogError(ex.Message);
+        }
+        finally
+        {
+            Semaphor.Release();
         }
     }
 
@@ -735,33 +748,16 @@ internal class ZoomServer
             }
         }
     }
-
-
-
-
     private async Task RemoveUserFromMeeting(Meeting meeting, Client user, CancellationToken token)
     {
-        try
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
         {
-            await semaphore.WaitAsync();
-
-            using (var ms = new MemoryStream())
-            using (var bw = new BinaryWriter(ms))
-            {
-                var participants = meeting.Clients.ToArray();
-                meeting.RemoveParticipant(user);
-                bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
-                bw.Write(user.Id);
-                await BroadcastPacket(ms.ToArray(), participants, token);
-            }
-        }
-        catch
-        {
-            throw;
-        }
-        finally
-        {
-            semaphore.Release();
+            var participants = meeting.Clients.ToArray();
+            meeting.RemoveParticipant(user);
+            bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
+            bw.Write(user.Id);
+            await BroadcastPacket(ms.ToArray(), participants, token);
         }
     }
 

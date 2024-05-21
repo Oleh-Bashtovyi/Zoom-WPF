@@ -11,7 +11,7 @@
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
              Background="{DynamicResource SecondaryBrush}"
-             MinHeight="615" MinWidth="660">
+             MinHeight="615" MinWidth="680" >
     
     <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
@@ -209,6 +209,41 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="Share meeting"  FontSize="20">
+                    <TabItem.Resources>
+                        <Style TargetType="{x:Type Image}">
+                            <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
+                            <Setter Property="Margin" Value="5"/>
+                        </Style>
+                    </TabItem.Resources>
+
+                    <!--MEETING CODE-->
+                    <!--======================================================-->
+                    <StackPanel Orientation="Horizontal"
+                                Margin="0 40 0 0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top">
+                        <TextBlock FontSize="20"
+                               Width="100" 
+                               TextWrapping="Wrap" 
+                               Margin="5 0 0 0"
+                               Text="Meeting code:" 
+                               Foreground="{DynamicResource MainFontBrush}"/>
+                        <TextBox IsReadOnly="True"  FontSize="23"
+                             Text="{Binding MeetingId, Mode=OneWay}"
+                             Background="{StaticResource SecondaryBrush}"
+                             Width="80"
+                             Height="35" 
+                             Margin="0 0 0 0"/>
+                        <Button Margin="5 0 0 0" 
+                            Style="{StaticResource RoundButton}"
+                            Command="{Binding CopyMeetingIdCommand}"
+                            Background="{DynamicResource InformativeBrush}">
+                            <Image Source="pack://siteoforigin:,,,/Assets/copy.png"/>
+                        </Button>
+                    </StackPanel>
+                </TabItem>
+                
                 <TabItem Header="Micro\Camera" FontSize="20">
                     <StackPanel Margin="5" Orientation="Vertical">
                         <TextBlock Style="{StaticResource DefaultTextBlock}"
@@ -255,7 +290,7 @@
                   
                 </TabItem>
 
-                <TabItem Header="Errors" FontSize="20">
+                <TabItem Header="Debug" FontSize="20">
                     <ScrollViewer Style="{DynamicResource VerticalScrollViewer}">
                         <ItemsControl ItemsSource="{Binding ErrorsList}" >
                             <ItemsControl.ItemTemplate>
@@ -294,31 +329,6 @@
                     </Style>
                 </DockPanel.Resources>
 
-                <!--MEETING CODE-->
-                <!--======================================================-->
-                <StackPanel Orientation="Horizontal" 
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center" 
-                            DockPanel.Dock="Left">
-                    <TextBlock FontSize="20"
-                               Width="100" 
-                               TextWrapping="Wrap" 
-                               Margin="5 0 0 0"
-                               Text="Meeting code:" 
-                               Foreground="{DynamicResource MainFontBrush}"/>
-                    <TextBox IsReadOnly="True"  FontSize="23"
-                             Text="{Binding MeetingId, Mode=OneWay}"
-                             Background="{StaticResource SecondaryBrush}"
-                             Width="80"
-                             Height="35" 
-                             Margin="0 0 0 0"/>
-                    <Button Margin="5 0 0 0" 
-                            Style="{StaticResource RoundButton}"
-                            Command="{Binding CopyMeetingIdCommand}"
-                            Background="{DynamicResource InformativeBrush}">
-                        <Image Source="pack://siteoforigin:,,,/Assets/copy.png"/>
-                    </Button>
-                </StackPanel>
 
                 <!--BUTTONS-->
                 <!--======================================================-->
@@ -389,7 +399,7 @@
                         <Image Source="{Binding CurrentTheme, Converter={StaticResource ThemeToImageConverter}}"/>
                     </Button>
                     <!--LEAVE-->
-                    <Button Margin="50 0 0 0"
+                    <Button Margin="10 0 0 0"
                             Style="{StaticResource RoundButton}" 
                             Command="{Binding LeaveMeetingCommand}"
                             Background="{DynamicResource OffButton}">

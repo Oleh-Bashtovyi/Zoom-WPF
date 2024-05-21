@@ -13,14 +13,25 @@ using Zoom_UI.MVVM.Models;
 using Zoom_UI.MVVM.Models.Frames;
 namespace Zoom_UI.ClientServer;
 
-public class ZoomClient : OneProcessServer
+public class ZoomClient
 {
+    private int _port;
+    private string _host;
+    private ILogger log;
+
+    //Process
+    private readonly TimeSpan _serverTimeout;
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
-    private Dictionary<int, FrameBuilder> User_CameraFrame = new();
-    private FrameBuilder _screenCaptureBuilder = new(0);
+    private CancellationTokenSource _cts = new();
+
+    public bool IsRunning { get; private set; }
+    public DateTime ServerLastPong { get; private set; }
     private BlockingCollection<byte[]> SendingBuffer { get; } = new();
 
+
+    private Dictionary<int, FrameBuilder> User_CameraFrame = new();
+    private FrameBuilder _screenCaptureBuilder = new(0);
 
 
     //GENERAL
@@ -65,16 +76,46 @@ public class ZoomClient : OneProcessServer
 
 
 
-    private TimeSpan ServerTimeout;
 
-    public ZoomClient(string host, int port, ILogger logger, TimeSpan serverTimeout) : base(host, port, logger)
+
+    public ZoomClient(string host, int port, ILogger logger, TimeSpan serverTimeout)
     {
+        log = logger;
+        _host = host;
+        _port = port;
         _comunicator = new();
         _comunicator.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
         _serverEndPoint = new(IPAddress.Parse(_host), _port);
-        ServerTimeout = serverTimeout;
+        _serverTimeout = serverTimeout;
         log.LogSuccess("Listener initialized!");
     }
+
+
+
+    #region Run\Stop
+    public void Run()
+    {
+        if (!IsRunning)
+        {
+            _cts = new();
+            var token = _cts.Token;
+
+            Task.Run(() => SendingProcess(_cts.Token));
+            Task.Run(() => ReceivingProcess(_cts.Token));
+            Task.Run(() => PingServer(_cts.Token));
+            IsRunning = true;
+        }
+    }
+    public void Stop()
+    {
+        if (IsRunning)
+        {
+            _cts.Cancel();
+            IsRunning = false;
+        }
+    }
+    #endregion
+
 
 
 
@@ -269,12 +310,7 @@ public class ZoomClient : OneProcessServer
             SendingBuffer.Add(ms.ToArray());
         }
     }
-
-
-
-
-
-    public bool SendFileEveryone(int meetingId, int senderId, string path, string fileId, CancellationToken token)
+    public bool Send_FileEveryone(int meetingId, int senderId, string path, string fileId, CancellationToken token)
     {
         using (var file = File.OpenRead(path))
         {
@@ -310,13 +346,13 @@ public class ZoomClient : OneProcessServer
             }
             if (token.IsCancellationRequested)
             {
-                SendFileDelete(meetingId, fileId);
+                Send_FileDelete(meetingId, fileId);
                 return true;
             }
             return true;
         }
     }
-    public bool SendFile(int meetingId, int senderId, int receiverId,  string path, string fileId, CancellationToken token)
+    public bool Send_File(int meetingId, int senderId, int receiverId,  string path, string fileId, CancellationToken token)
     {
         using (var file = File.OpenRead(path))
         {
@@ -353,13 +389,13 @@ public class ZoomClient : OneProcessServer
             }
             if (token.IsCancellationRequested)
             {
-                SendFileDelete(meetingId, fileId);
+                Send_FileDelete(meetingId, fileId);
                 return true;
             }
             return true;
         }
     }
-    public void SendFileDelete(int meetingId, string fileId)
+    public void Send_FileDelete(int meetingId, string fileId)
     {
         using (var ms = new MemoryStream(16))
         using (var bw = new BinaryWriter(ms))
@@ -388,25 +424,9 @@ public class ZoomClient : OneProcessServer
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     protected async Task SendingProcess(CancellationToken token)
     {
         log.LogSuccess("Sending process started!");
-        var exceptionCount = 0;
 
         while (true)
         {
@@ -418,42 +438,26 @@ public class ZoomClient : OneProcessServer
             catch (Exception ex)
             {
                 log.LogError("(SENDING PROCESS): " + ex.Message);
-                exceptionCount++;   
-
-                if(exceptionCount >= 10)
-                {
-                    log.LogError($"Too many errors occured in SENDING PROCESS!\nCount: {exceptionCount}");
-                    break;
-                }
+                log.LogError("(SENDING PROCESS): Process stoped!");
+                break;
             }
         }
     }
 
 
-
-
-
-    private DateTime _serverLastPong { get; set; } 
-    private async Task PingRemote(CancellationToken token)
+    private async Task PingServer(CancellationToken token)
     {
         try
         {
-            byte[] data;
+            var data = OpCode.PING.AsArray();
 
-            using (var ms = new MemoryStream(8))
-            using (var bw = new BinaryWriter(ms))
-            {
-                bw.Write((byte)OpCode.PING);
-                data = ms.ToArray();
-            }
-
-            _serverLastPong = DateTime.UtcNow;
+            ServerLastPong = DateTime.Now;
 
             while (!token.IsCancellationRequested)
             {
-                if ((DateTime.UtcNow - _serverLastPong) > ServerTimeout)
+                if ((DateTime.Now - ServerLastPong) > _serverTimeout)
                 {
-                    System.Windows.MessageBox.Show("Server is not responding", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Server is not responding", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     Environment.Exit(0);
                 }
                 else
@@ -461,7 +465,7 @@ public class ZoomClient : OneProcessServer
                     SendingBuffer.Add(data);
                 }
 
-                await Task.Delay(4000, token);
+                await Task.Delay(5000, token);
             }
         }
         catch(Exception ex)
@@ -472,266 +476,243 @@ public class ZoomClient : OneProcessServer
 
 
 
-
-
-
-
-
-
-    protected override async Task Process(CancellationToken token)
+    protected async Task ReceivingProcess(CancellationToken token)
     {
-        Task.Run(() => SendingProcess(token));
-        Task.Run(() => PingRemote(token));
+        log.LogSuccess("Listener started!");
 
-        try
+        while (true)
         {
-            log.LogSuccess("Listener started!");
-
-            while (true)
+            try
             {
-                try
+                var packet = await _comunicator.ReceiveAsync(token);
+                using var ms = new MemoryStream(packet.Buffer);
+                using var br = new BinaryReader(ms);
+                var opCode = (OpCode)br.ReadByte();
+
+
+                //===================================================================
+                //----PING-PONG
+                //===================================================================
+                if (opCode == OpCode.PING)
                 {
-                    var packet = await _comunicator.ReceiveAsync(token);
-                    using var ms = new MemoryStream(packet.Buffer);
-                    using var br = new PacketReader(ms);
-                    var opCode = (OpCode)br.ReadByte();
-                    log.LogWarning($"Received op code: {opCode}");
+                    log.LogSuccess($"ping to server!");
+                    SendingBuffer.Add(OpCode.PONG.AsArray());
+                }
+                else if (opCode == OpCode.PONG)
+                {
+                    ServerLastPong = DateTime.Now;
+                }
+                //===================================================================
+                //----RESULTS
+                //===================================================================
+                else if (opCode == OpCode.ERROR)
+                {
+                    var code = (ErrorCode)br.ReadByte();
+                    var message = br.ReadString();
+                    OnErrorReceived?.Invoke(new(code, message));
+                }
+                else if (opCode == OpCode.SUCCESS)
+                {
+                    var code = (ScsCode)br.ReadByte();
+                    var message = br.ReadString();
+                    OnSuccessReceived?.Invoke(new(code, message));
+                }
+                //===================================================================
+                //----AUDIO
+                //===================================================================
+                else if (opCode == OpCode.PARTICIPANT_SENT_AUDIO)
+                {
+                    var userId = br.ReadInt32();
+                    var length = br.ReadInt32();
+                    var data = br.ReadBytes(length);
+                    OnUser_SentAudioFrame?.Invoke(new(userId, data));
+                }
+                else if (opCode == OpCode.PARTICIPANT_TURNED_MICROPHONE_ON)
+                {
+                    var userId = br.ReadInt32();
+                    OnUser_TurnedMicrophone_ON?.Invoke(new(userId, string.Empty));
+                }
+                else if (opCode == OpCode.PARTICIPANT_TURNED_MICROPHONE_OFF)
+                {
+                    var userId = br.ReadInt32();
+                    OnUser_TurnedMicrophone_OFF?.Invoke(new(userId, string.Empty));
+                }
+                //===================================================================
+                //----CAMERA
+                //===================================================================
+                else if (opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CREATE)
+                {
+                    var userId = br.ReadInt32();
+                    var framesCount = br.ReadInt32();
 
+                    var framePosition = br.ReadInt32();
+                    var dataLength = br.ReadInt32();
+                    var data = br.ReadBytes(dataLength);
 
-                    //===================================================================
-                    //----PING-PONG
-                    //===================================================================
-                    if (opCode == OpCode.PING)
+                    if (framesCount == 1)
                     {
-                        log.LogSuccess($"ping to server!");
-                        SendingBuffer.Add(OpCode.PONG.AsArray());
+                        var image = data.AsBitmapImage();
+                        OnCameraFrameReceived?.Invoke(new(userId, image));
                     }
-                    else if (opCode == OpCode.PONG)
+                    else
                     {
-                        _serverLastPong = DateTime.UtcNow;
-                    }
-                    //===================================================================
-                    //----RESULTS
-                    //===================================================================
-                    else if (opCode == OpCode.ERROR)
-                    {
-                        var code = (ErrorCode)br.ReadByte();
-                        var message = br.ReadString();
-                        OnErrorReceived?.Invoke(new(code, message));
-                    }
-                    else if (opCode == OpCode.SUCCESS)
-                    {
-                        var code = (ScsCode)br.ReadByte();
-                        var message = br.ReadString();
-                        OnSuccessReceived?.Invoke(new(code, message));
-                    }
-                    //===================================================================
-                    //----AUDIO
-                    //===================================================================
-                    else if(opCode == OpCode.PARTICIPANT_SENT_AUDIO)
-                    {
-                        var userId = br.ReadInt32();
-                        var length = br.ReadInt32();
-                        var data = br.ReadBytes(length);
-                        //log.LogSuccess($"Audio received! User: {userId}, Length: {data.Length}");
-                        OnUser_SentAudioFrame?.Invoke(new(userId, data));
-                    }
-                    else if(opCode == OpCode.PARTICIPANT_TURNED_MICROPHONE_ON)
-                    {
-                        var userId = br.ReadInt32();
-                        OnUser_TurnedMicrophone_ON?.Invoke(new(userId, string.Empty));
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_TURNED_MICROPHONE_OFF)
-                    {
-                        var userId = br.ReadInt32();
-                        OnUser_TurnedMicrophone_OFF?.Invoke(new(userId, string.Empty));
-                    }
-                    //===================================================================
-                    //----CAMERA
-                    //===================================================================
-                    else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CREATE)
-                    {
-                        var userId = br.ReadInt32();
-                        var framesCount = br.ReadInt32();
-
-                        var framePosition = br.ReadInt32();
-                        var dataLength = br.ReadInt32();
-                        var data = br.ReadBytes(dataLength);
-
-                        //log.LogWarning($"Received command to create camera frame! user:{userId}  clusters:{framesCount}");
-                        if(framesCount == 1)
-                        {
-                            var image = data.AsBitmapImage();
-                            OnCameraFrameReceived?.Invoke(new(userId, image));
-                        }
-                        else
-                        {
-                            var framBuilder = new FrameBuilder(framesCount);
-                            framBuilder.AddFrame(framePosition, data);
-                            User_CameraFrame[userId] = framBuilder;
-                        }
-                    }
-                    else if(opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE)
-                    {
-                        var frameInfo = br.ReadUserFrame();
-                        var frameBuilder = User_CameraFrame[frameInfo.UserId];
-                        //log.LogWarning($"Recived camera frame cluster! position{frameInfo.Position}, userId:{frameInfo.UserId}");
-                        frameBuilder.AddFrame(frameInfo.Position, frameInfo.Data);
-
-                        if (frameBuilder.IsFull)
-                        {
-                            var image = frameBuilder.AsByteArray().AsBitmapImage();
-                            //log.LogWarning($"Received full camera frame!");
-                            OnCameraFrameReceived?.Invoke(new (frameInfo.UserId, image));
-                        }
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_TURNED_CAMERA_ON)
-                    {
-                        var userId = br.ReadInt32();
-                        OnUser_TurnedCamera_ON?.Invoke(new(userId, string.Empty));
-                    }
-                    else if(opCode == OpCode.PARTICIPANT_TURNED_CAMERA_OFF)
-                    {
-                        var userId = br.ReadInt32();
-                        OnUser_TurnedCamera_OFF?.Invoke(new(userId, string.Empty));
-                    }
-                    //===================================================================
-                    //----SCREEN
-                    //===================================================================
-                    else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
-                    {
-                        var userId = br.ReadInt32();
-                        OnUser_TurnedDemonstration_ON?.Invoke(new(userId, string.Empty));
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF)
-                    {
-                        var userId = br.ReadInt32();
-                        OnUser_TurnedDemonstration_OFF?.Invoke(new(userId, string.Empty));
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME)
-                    {
-                        var userId = br.ReadInt32();
-                        var framesCount = br.ReadInt32();
-                        log.LogWarning($"Received command to create screen frame! user:{userId}  clusters:{framesCount}");
-                        _screenCaptureBuilder = new FrameBuilder(framesCount);
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME)
-                    {
-                        var frameInfo = br.ReadUserFrame();
-                        log.LogWarning($"Recived camera frame cluster! position{frameInfo.Position}, userId:{frameInfo.UserId}");
-                        _screenCaptureBuilder.AddFrame(frameInfo.Position, frameInfo.Data);
-
-                        if (_screenCaptureBuilder.IsFull)
-                        {
-                            var image = _screenCaptureBuilder.AsByteArray().AsBitmapImage();
-                            log.LogWarning($"Received full camera frame!");
-                            OnScreenCaptureFrameReceived?.Invoke(new(frameInfo.UserId, image));
-                        }
-                    }
-                    //===================================================================
-                    //----PARTICIPATING
-                    //===================================================================
-                    else if(opCode == OpCode.PARTICIPANT_JOINED_MEETING)
-                    {
-                        var userId = br.ReadInt32();
-                        var userName = br.ReadString();
-                        OnUser_JoinedMeeting?.Invoke(new(userId, userName));
-                    }
-                    else if(opCode == OpCode.PARTICIPANT_LEFT_MEETING)
-                    {
-                        var userId = br.ReadInt32();
-                        log.LogWarning($"User: {userId} leaving meeting!");
-                        OnUser_LeftMeeting?.Invoke(new(userId, string.Empty));
-                    }
-                    else if(opCode == OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING)
-                    {
-                        var meetingId = br.ReadInt32();
-                        OnUserJoinedMeeting_UsingCode?.Invoke(new(meetingId));
-                    }
-                    //===================================================================
-                    //----FILES
-                    //===================================================================
-                    else if (opCode == OpCode.PARTICIPANT_SEND_FILE_UPLOADED)
-                    {
-                        log.LogSuccess("RECEIVED FILE!");
-                        var senderName = br.ReadString();
-                        var fileName = br.ReadString();
-                        var fileSize = br.ReadInt64();
-                        var fileId = br.ReadString();
-                        var fileModel = new FileModel(fileId, fileName, fileSize);
-                        OnFileUploaded?.Invoke(new(senderName, "You", fileModel));
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_SEND_FILE_UPLOADED_EVERYONE)
-                    {
-                        log.LogSuccess("RECEIVED FILE FOR EVERYONE!");
-                        var senderName = br.ReadString();
-                        var fileName = br.ReadString();
-                        var fileSize = br.ReadInt64();
-                        var idName = br.ReadString();
-                        var fileModel = new FileModel(idName, fileName, fileSize);
-                        OnFileUploaded?.Invoke(new(senderName, "Everyone", fileModel));
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_SEND_FILE_DOWNLOAD)
-                    {
-                        var fileId = br.ReadString();
-                        var dataSize = br.ReadInt32();
-                        var data = br.ReadBytes(dataSize);
-                        OnFilePartDownloaded?.Invoke(new(fileId, data));
-                    }
-
-
-
-                    //===================================================================
-                    //----MESSAGES
-                    //===================================================================
-                    else if (opCode == OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE)
-                    {
-                        var fromUser = br.ReadString();
-                        var message = br.ReadString();
-                        OnMessageSent?.Invoke(new(fromUser, "Everyone", message));
-                    }
-                    else if (opCode == OpCode.PARTICIPANT_MESSAGE_SEND)
-                    {
-                        var fromUser = br.ReadString();
-                        var toUser = br.ReadString();
-                        var message = br.ReadString();
-                        OnMessageSent?.Invoke(new(fromUser, toUser, message));
-                    }
-                    //===================================================================
-                    //----GENERAL
-                    //===================================================================
-                    else if (opCode == OpCode.CREATE_MEETING)
-                    {
-                        var id = br.ReadInt32();
-                        OnMeetingCreated?.Invoke(new(id));
-                    }
-                    else if (opCode == OpCode.CREATE_USER)
-                    {
-                        var id = br.ReadInt32();
-                        var username = br.ReadString();
-                        log.LogWarning($"Received new user! Id: {id} username: {username}");
-                        OnUserCreated?.Invoke(new(id, username));
-                    }
-                    else if(opCode == OpCode.CHANGE_USER_NAME)
-                    {
-                        var userId = br.ReadInt32();
-                        var username = br.ReadString();
-                        OnUserChangedName?.Invoke(new(userId, username));
+                        var framBuilder = new FrameBuilder(framesCount);
+                        framBuilder.AddFrame(framePosition, data);
+                        User_CameraFrame[userId] = framBuilder;
                     }
                 }
-                catch(OperationCanceledException)
+                else if (opCode == OpCode.PARTICIPANT_CAMERA_FRAME_CLUESTER_UPDATE)
                 {
-                    throw;
+                    var userId = br.ReadInt32();
+                    var position = br.ReadInt32();
+                    var clusterSize = br.ReadInt32();
+                    var data = br.ReadBytes(clusterSize);
+                    var frameBuilder = User_CameraFrame[userId];
+                    frameBuilder.AddFrame(position, data);
+
+                    if (frameBuilder.IsFull)
+                    {
+                        var image = frameBuilder.AsByteArray().AsBitmapImage();
+                        OnCameraFrameReceived?.Invoke(new(userId, image));
+                    }
                 }
-                catch (Exception ex)
+                else if (opCode == OpCode.PARTICIPANT_TURNED_CAMERA_ON)
                 {
-                    log.LogError(ex.Message);
+                    var userId = br.ReadInt32();
+                    OnUser_TurnedCamera_ON?.Invoke(new(userId, string.Empty));
+                }
+                else if (opCode == OpCode.PARTICIPANT_TURNED_CAMERA_OFF)
+                {
+                    var userId = br.ReadInt32();
+                    OnUser_TurnedCamera_OFF?.Invoke(new(userId, string.Empty));
+                }
+                //===================================================================
+                //----SCREEN
+                //===================================================================
+                else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_ON)
+                {
+                    var userId = br.ReadInt32();
+                    OnUser_TurnedDemonstration_ON?.Invoke(new(userId, string.Empty));
+                }
+                else if (opCode == OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF)
+                {
+                    var userId = br.ReadInt32();
+                    OnUser_TurnedDemonstration_OFF?.Invoke(new(userId, string.Empty));
+                }
+                else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME)
+                {
+                    var userId = br.ReadInt32();
+                    var framesCount = br.ReadInt32();
+                    _screenCaptureBuilder = new FrameBuilder(framesCount);
+                }
+                else if (opCode == OpCode.PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME)
+                {
+                    var userId = br.ReadInt32();
+                    var position = br.ReadInt32();
+                    var clusterSize = br.ReadInt32();
+                    var data = br.ReadBytes(clusterSize);
+                    _screenCaptureBuilder.AddFrame(position, data);
+
+                    if (_screenCaptureBuilder.IsFull)
+                    {
+                        var image = _screenCaptureBuilder.AsByteArray().AsBitmapImage();
+                        OnScreenCaptureFrameReceived?.Invoke(new(userId, image));
+                    }
+                }
+                //===================================================================
+                //----PARTICIPATING
+                //===================================================================
+                else if (opCode == OpCode.PARTICIPANT_JOINED_MEETING)
+                {
+                    var userId = br.ReadInt32();
+                    var userName = br.ReadString();
+                    OnUser_JoinedMeeting?.Invoke(new(userId, userName));
+                }
+                else if (opCode == OpCode.PARTICIPANT_LEFT_MEETING)
+                {
+                    var userId = br.ReadInt32();
+                    log.LogWarning($"User: {userId} leaving meeting!");
+                    OnUser_LeftMeeting?.Invoke(new(userId, string.Empty));
+                }
+                else if (opCode == OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING)
+                {
+                    var meetingId = br.ReadInt32();
+                    OnUserJoinedMeeting_UsingCode?.Invoke(new(meetingId));
+                }
+                //===================================================================
+                //----FILES
+                //===================================================================
+                else if (opCode == OpCode.PARTICIPANT_SEND_FILE_UPLOADED)
+                {
+                    var senderName = br.ReadString();
+                    var fileName = br.ReadString();
+                    var fileSize = br.ReadInt64();
+                    var fileId = br.ReadString();
+                    var fileModel = new FileModel(fileId, fileName, fileSize);
+                    OnFileUploaded?.Invoke(new(senderName, "You", fileModel));
+                }
+                else if (opCode == OpCode.PARTICIPANT_SEND_FILE_UPLOADED_EVERYONE)
+                {
+                    var senderName = br.ReadString();
+                    var fileName = br.ReadString();
+                    var fileSize = br.ReadInt64();
+                    var idName = br.ReadString();
+                    var fileModel = new FileModel(idName, fileName, fileSize);
+                    OnFileUploaded?.Invoke(new(senderName, "Everyone", fileModel));
+                }
+                else if (opCode == OpCode.PARTICIPANT_SEND_FILE_DOWNLOAD)
+                {
+                    var fileId = br.ReadString();
+                    var dataSize = br.ReadInt32();
+                    var data = br.ReadBytes(dataSize);
+                    OnFilePartDownloaded?.Invoke(new(fileId, data));
+                }
+                //===================================================================
+                //----MESSAGES
+                //===================================================================
+                else if (opCode == OpCode.PARTICIPANT_MESSAGE_SEND_EVERYONE)
+                {
+                    var fromUser = br.ReadString();
+                    var message = br.ReadString();
+                    OnMessageSent?.Invoke(new(fromUser, "Everyone", message));
+                }
+                else if (opCode == OpCode.PARTICIPANT_MESSAGE_SEND)
+                {
+                    var fromUser = br.ReadString();
+                    var toUser = br.ReadString();
+                    var message = br.ReadString();
+                    OnMessageSent?.Invoke(new(fromUser, toUser, message));
+                }
+                //===================================================================
+                //----GENERAL
+                //===================================================================
+                else if (opCode == OpCode.CREATE_MEETING)
+                {
+                    var id = br.ReadInt32();
+                    OnMeetingCreated?.Invoke(new(id));
+                }
+                else if (opCode == OpCode.CREATE_USER)
+                {
+                    var id = br.ReadInt32();
+                    var username = br.ReadString();
+                    log.LogWarning($"Received new user! Id: {id} username: {username}");
+                    OnUserCreated?.Invoke(new(id, username));
+                }
+                else if (opCode == OpCode.CHANGE_USER_NAME)
+                {
+                    var userId = br.ReadInt32();
+                    var username = br.ReadString();
+                    OnUserChangedName?.Invoke(new(userId, username));
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            log.LogError(ex.Message);
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                log.LogError(ex.Message);
+            }
         }
     }
 }

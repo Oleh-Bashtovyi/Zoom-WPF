@@ -12,3 +12,16 @@ public class ImageFrame
         Image = frame;
     }
 }
+
+
+public class UserFrame
+{
+    public int UserId { get; set; }
+    public int Position {  get; set; }
+    public byte[] Data { get; set; }
+    public UserFrame(int userId, int position, byte[] data)
+    {
+        UserId=userId;
+        Data = data;
+    }
+}

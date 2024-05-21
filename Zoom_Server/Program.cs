@@ -15,7 +15,7 @@ namespace Zoom_Server
         {
             server = new ZoomServer(serverIP, serverPort, new LoggerWithConsoleAndTime());
 
-            server.Run();
+            server.Start();
             Console.WriteLine("Server started");
 
             while (Console.ReadLine() != "exit") { }

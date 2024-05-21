@@ -57,11 +57,11 @@ public class ChatFileItem
             bool res;
             if (_receiver == null)
             {
-                res = _zoomClient.SendFileEveryone(MeetingId, _sender.Id, FilePath, FileId, token);
+                res = _zoomClient.Send_FileEveryone(MeetingId, _sender.Id, FilePath, FileId, token);
             }
             else
             {
-                res = _zoomClient.SendFile(MeetingId, _sender.Id, _receiver.Id, FilePath, FileId, token);
+                res = _zoomClient.Send_File(MeetingId, _sender.Id, _receiver.Id, FilePath, FileId, token);
             }
 
             App.Current.Dispatcher.Invoke(() =>

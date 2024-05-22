@@ -16,6 +16,7 @@ namespace Zoom_UI;
 public partial class App : Application
 {
     private readonly ZoomClient zoomClient;
+    private readonly ScreenRecordingManager screenRecordingManager;
     private readonly ViewModelNavigator viewModelNavigator;
     private readonly WebCameraControl webCamera;
     private readonly ThemeManager themeManager;
@@ -43,6 +44,7 @@ public partial class App : Application
         themeManager = new ThemeManager();
         cameraCaptureManager = new WebCameraCaptureManager(webCamera, 15);
         screenCaptureManager = new ScreenCaptureManager(1080, 1920, 10);
+        screenRecordingManager = new ScreenRecordingManager();
         applicationData = new(
             zoomClient, 
             cameraCaptureManager, 
@@ -51,7 +53,8 @@ public partial class App : Application
             screenCaptureManager,
             microphoneCaptureManager,
             ErrorLoger,
-            audioManager
+            audioManager,
+            screenRecordingManager
             );
     }
 
@@ -80,6 +83,8 @@ public partial class App : Application
         cameraCaptureManager.StopCapturing();
         screenCaptureManager.StopCapturing();
         microphoneCaptureManager.StopRecording();
+        screenRecordingManager.StopRecording();
+        screenRecordingManager.Dispose();
         audioManager.Stop();
         audioManager.Dispose();
     }

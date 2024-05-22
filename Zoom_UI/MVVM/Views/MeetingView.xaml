@@ -21,7 +21,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="5"/>
-            <ColumnDefinition Width="320" MinWidth="320" MaxWidth="420"/>
+            <ColumnDefinition Width="Auto" MinWidth="1" MaxWidth="1"/>
         </Grid.ColumnDefinitions>
 
         <GridSplitter Grid.Column="1" Grid.RowSpan="2" x:Name="GridSpliter" 
@@ -109,6 +109,7 @@
                 x:Name="MessagesContainer"
                 Margin="10"
                 Padding="0"
+                Visibility="Collapsed"
                 Background="{DynamicResource MainBrush}"
                 Style="{DynamicResource DefaultBorder}">
 
@@ -368,7 +369,26 @@
                         </Button.Resources>
                         <Image Source="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToCameraImageConverter}}"/>
                     </Button>
-
+                    <!--RECORDING-->
+                    <Button Command="{Binding SwitchRecordingStateCommand}">
+                        <Button.Resources>
+                            <Style TargetType="{x:Type Border}">
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                            <Style TargetType="{x:Type Button}">
+                                <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
+                                <Setter Property="Width" Value="50"/>
+                                <Setter Property="Height" Value="50"/>
+                                <Setter Property="Margin" Value="10 0 0 0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRecordingNow}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource OnButton}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Resources>
+                        <Image Source="pack://siteoforigin:,,,/Assets/record.png"/>
+                    </Button>
 
                     <!--SCREEN SHARE-->
                     <Button Margin="10 0 0 0"

@@ -66,7 +66,9 @@ internal class ZoomServer
                 
                 await Semaphor.WaitAsync(token).ConfigureAwait(false); ;
 
-                foreach(var meeting in Meetings)
+                var meetings = Meetings.ToArray();
+
+                foreach(var meeting in meetings)
                 {
                     var clients = meeting.Clients.ToArray();
 
@@ -78,7 +80,7 @@ internal class ZoomServer
                         }
                         else
                         {
-                            await Handle_RemoveUserFromMeeting(meeting, client, token);
+                            await RemoveUserFromMeeting(meeting, client, token);
                             log.LogError($"User: {client.Id} was removed due to inactivity!");
                         }
                     }
@@ -393,15 +395,7 @@ internal class ZoomServer
                     meeting.ScreenDemonstartor != null && 
                     meeting.ScreenDemonstartor.Id == userId)
                 {
-                    using (var ms = new MemoryStream())
-                    using (var bw = new BinaryWriter(ms))
-                    {
-                        meeting.ScreenDemonstartor = null;
-                        log.LogError($"Screen demonstration was stoped by user: {userId}, meeting: {meetingId}");
-                        bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF);
-                        bw.Write(userId);
-                        await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
-                    }
+                    await Broadcast_ScreenDemostrationStop(meeting, meeting.ScreenDemonstartor, token);
                 }
             }
             //==================================================================================================
@@ -615,7 +609,7 @@ internal class ZoomServer
 
             if(user != null)
             {
-                await Handle_RemoveUserFromMeeting(meeting, user, token);
+                await RemoveUserFromMeeting(meeting, user, token);
             }
         }
     }
@@ -669,16 +663,29 @@ internal class ZoomServer
             }
         }
     }
-    private async Task Handle_RemoveUserFromMeeting(Meeting meeting, Client user, CancellationToken token)
+    private async Task RemoveUserFromMeeting(Meeting meeting, Client user, CancellationToken token)
     {
+        var participants = meeting.Clients.ToArray();
+        var isScreenWasDemonstrated = meeting.IsScreenDemonstrationActive;
+        meeting.RemoveParticipant(user);
+
+        if (isScreenWasDemonstrated && !meeting.IsScreenDemonstrationActive)
+        {
+            await Broadcast_ScreenDemostrationStop(meeting, user, token);
+        }
+
         using (var ms = new MemoryStream())
         using (var bw = new BinaryWriter(ms))
         {
-            var participants = meeting.Clients.ToArray();
-            meeting.RemoveParticipant(user);
             bw.Write((byte)OpCode.PARTICIPANT_LEFT_MEETING);
             bw.Write(user.Id);
             await Broadcast_Packet(ms.ToArray(), participants, token);
+        }
+
+        if(!meeting.Clients.Any())
+        {
+            FileManager.DeleteMeetingCatalog(meeting.Id);
+            Meetings.Remove(meeting);
         }
     }
 
@@ -726,6 +733,21 @@ internal class ZoomServer
 
 
 
+
+
+
+    private async Task Broadcast_ScreenDemostrationStop(Meeting meeting, Client screenDemonstrator, CancellationToken token)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            meeting.ScreenDemonstartor = null;
+            log.LogError($"Screen demonstration was stoped by user: {screenDemonstrator.Id}, meeting: {meeting.Id}");
+            bw.Write((byte)OpCode.PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF);
+            bw.Write(screenDemonstrator.Id);
+            await Broadcast_Packet(ms.ToArray(), meeting.Clients, token);
+        }
+    }
 
 
     private async Task Broadcast_Error(ErrorCode errorCode, string message, IPEndPoint remoteEndPoint, CancellationToken token)

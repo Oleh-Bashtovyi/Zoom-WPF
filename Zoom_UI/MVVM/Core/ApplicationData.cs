@@ -17,6 +17,7 @@ public class ApplicationData
     public ViewModelNavigator PagesNavigator { get; }
     public ObservableCollection<DebugMessage> ErrorsBuffer { get; }
     public LoggerWithCollection LoggerWithCollection { get; }
+    public ScreenRecordingManager ScreenRecordingManager { get; }
     public ApplicationData(
         ZoomClient comunicator,
         WebCameraCaptureManager webCamera, 
@@ -25,7 +26,8 @@ public class ApplicationData
         ScreenCaptureManager screenCaptureManager,
         MicrophoneCaptureManager microphoneCaptureManager,
         LoggerWithCollection logger,
-        AudioManager audioManager)
+        AudioManager audioManager,
+        ScreenRecordingManager screenRecordingManager)
     {
         ZoomClient = comunicator;
         WebCameraCaptureManager = webCamera;
@@ -36,5 +38,6 @@ public class ApplicationData
         LoggerWithCollection = logger;
         ErrorsBuffer = logger.GetBuffer();
         AudioManager = audioManager;
+        ScreenRecordingManager = screenRecordingManager;
     }
 }

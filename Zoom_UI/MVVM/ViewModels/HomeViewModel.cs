@@ -57,8 +57,8 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     public HomeViewModel(ApplicationData data)
     {
         _applicationData = data;
-        _comunicator = data.Comunicator;
-        _navigator = data.Navigator;
+        _comunicator = data.ZoomClient;
+        _navigator = data.PagesNavigator;
         MeetingCodeToJoin = "1001";
 
 
@@ -151,11 +151,21 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     void ISeverEventSubsribable.SubscribeEvents()
     {
         _comunicator.OnCurrentUser_JoinedToMeeting += _comunicator_OnCurrentUser_JoinedToMeeting;
+        _comunicator.OnErrorReceived += _comunicator_OnErrorReceived;
+    }
+
+    private void _comunicator_OnErrorReceived(ErrorModel obj)
+    {
+        Application.Current.Dispatcher.BeginInvoke(() =>
+        {
+            MessageBox.Show(obj.Message, "Error from server", MessageBoxButton.OK, MessageBoxImage.Error);
+        });
     }
 
     void ISeverEventSubsribable.UnsubscribeEvents()
     {
         _comunicator.OnCurrentUser_JoinedToMeeting -= _comunicator_OnCurrentUser_JoinedToMeeting;
+        _comunicator.OnErrorReceived -= _comunicator_OnErrorReceived;
     }
 
     private void _comunicator_OnCurrentUser_JoinedToMeeting(MeetingInfo meeting)

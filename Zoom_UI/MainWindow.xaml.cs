@@ -14,7 +14,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
-        if(DataContext is MainViewModel mvm)
+        if(DataContext is IDisposable mvm)
         {
             mvm.Dispose();
         }

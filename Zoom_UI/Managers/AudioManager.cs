@@ -14,7 +14,7 @@ namespace Zoom_UI.Managers
             _waveOut.Init(waveProvider);
         }
 
-        public void Play()
+        public void Start()
         {
             waveProvider.ClearBuffer();
             _waveOut.Play();

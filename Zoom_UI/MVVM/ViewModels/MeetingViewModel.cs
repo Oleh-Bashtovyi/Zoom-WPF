@@ -13,20 +13,22 @@ using Zoom_UI.Managers;
 using NAudio.Wave;
 using Zoom_Server.Net.Codes;
 using Zoom_UI.MVVM.Models.Frames;
+using Zoom_UI.Managersl;
 namespace Zoom_UI.MVVM.ViewModels;
 #pragma warning disable CS8618
 
 public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposable
 {
     private readonly UserViewModel _everyone = new("Everyone", -1);
+    private MicrophoneCaptureManager _microphonCaptureManager;
     private UserViewModel _selectedParticipant;
     private UserViewModel _currentUser;
     private ViewModelNavigator _navigator;
     private ZoomClient _comunicator;
-    private WebCameraCaptureManager _webCamera;
+    private WebCameraCaptureManager _cameraCaptureManager;
     private WebCameraId _selectedWebCam;
-    private BitmapImage _screenDemonstrationImage;
-    private UserViewModel _screenDemonstrator;
+    private BitmapImage? _screenDemonstrationImage;
+    private UserViewModel? _screenDemonstrator;
     private ApplicationData _applicationData;
     private ScreenCaptureManager _screenCaptureManager;
     private CancellationTokenSource _meetingTokenSource;
@@ -46,7 +48,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         get => _meetingId;
         set => SetAndNotifyPropertyChanged(ref  _meetingId, value);
     }
-    public string CurrentTheme => _applicationData.ThemeManager.CurrentTheme;
     public UserViewModel CurrentUser 
     {
         get => _currentUser;
@@ -82,6 +83,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         get => _sellectedAudioDeviceIndex;
         set => SetAndNotifyPropertyChanged(ref _sellectedAudioDeviceIndex, value);
     }
+    public string CurrentTheme => _applicationData.ThemeChangeManager.CurrentTheme;
     #endregion
 
     #region COLLECCTIONS
@@ -107,7 +109,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
 
 
 
-    public MeetingViewModel(ApplicationData data, MeetingInfo meeting)
+    public MeetingViewModel(ApplicationData applicationData, MeetingInfo meeting)
     {
         #region Commands_initialization
         SendFileCommand = new RelayCommand(SendFile, () => SelectedParticipant != null);
@@ -125,23 +127,23 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         #endregion
 
         #region Initial_data
-        _applicationData = data;
         ParticipantsSelection.Add(_everyone);
         Participants.Add(meeting.CurrentUser);
         SelectedParticipant = _everyone;
-        _navigator = data.Navigator;
-        _comunicator = data.Comunicator;
+        _applicationData = applicationData;
+        _microphonCaptureManager = applicationData.MicrophoneCaptureManager;
+        _navigator = applicationData.PagesNavigator;
+        _comunicator = applicationData.ZoomClient;
         _meetingId = meeting.Id;
-        _webCamera = data.WebCamera;
-        ErrorsList = data.ErrorsBuffer;
-        OnPropertyChanged(nameof(ErrorsList));
-        _screenCaptureManager = data.ScreenCaptureManager;
+        _cameraCaptureManager = applicationData.WebCameraCaptureManager;
+        _screenCaptureManager = applicationData.ScreenCaptureManager;
         _meetingTokenSource = new CancellationTokenSource();
-        DownloadFileCommand = new FileRelayCommand(DownloadFile);
+        ErrorsList = applicationData.ErrorsBuffer;
+        OnPropertyChanged(nameof(ErrorsList));
 
         Application.Current.Dispatcher.Invoke(() =>
         {
-            foreach (var device in _webCamera.GetInputDevices())
+            foreach (var device in _cameraCaptureManager.GetInputDevices())
             {
                 WebCameras.Add(device);
             }
@@ -210,11 +212,11 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             if (CurrentUser.IsCameraOn)
             {
-                _webCamera.StopCapturing();
+                _cameraCaptureManager.StopCapturing();
             }
             else
             {
-                _webCamera.StartCapturing(SelectedWebCamDevice);
+                _cameraCaptureManager.StartCapturing(SelectedWebCamDevice);
             }
         }
         catch (Exception ex)
@@ -237,7 +239,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     {
         try
         {
-            _applicationData.ThemeManager.NextTheme();
+            _applicationData.ThemeChangeManager.NextTheme();
         }
         catch (Exception ex)
         {
@@ -255,18 +257,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private void LeaveMeeting()
     {
         _comunicator.Send_UserLeftMeeting(CurrentUser.Id, MeetingId);
-    }
-    private void DownloadFile(FileModel file)
-    {
-        var openFolderDialog = new Microsoft.Win32.OpenFolderDialog();
-
-        openFolderDialog.Title = "Select path to save file";
-
-        if (openFolderDialog.ShowDialog() ?? false)
-        {
-            var savePath = System.IO.Path.Combine(openFolderDialog.FolderName, file.FileName);
-
-        }
     }
     private void SendMessage()
     {
@@ -475,7 +465,9 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             if(model.Id == CurrentUser.Id)
             {
-                _navigator.CurrentViewModel = new HomeViewModel(_applicationData);
+                var homeView = new HomeViewModel(_applicationData);
+                homeView.Username = CurrentUser.Username;
+                _navigator.CurrentViewModel = homeView;
                 ((ISeverEventSubsribable)this).UnsubscribeEvents();
             }
             else 
@@ -730,10 +722,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnCameraFrameReceived += Comunicator_OnCameraFrameReceived;
         _comunicator.OnUser_TurnedCamera_OFF += Comunicator_OnCameraTurnedOff;
         _comunicator.OnUser_TurnedCamera_ON += Comunicator_OnCameraTurnedOn;
-        _webCamera.OnError += _webCamera_OnError; 
-        _webCamera.OnCaptureStarted += WebCameraManager_OnCaptureStarted;
-        _webCamera.OnCaptureFinished += WebCameraManager_OnCaptureFinished;
-        _webCamera.OnImageCaptured += WebCameraManager_OnFrameCaptured;
+        _cameraCaptureManager.OnError += _webCamera_OnError; 
+        _cameraCaptureManager.OnCaptureStarted += WebCameraManager_OnCaptureStarted;
+        _cameraCaptureManager.OnCaptureFinished += WebCameraManager_OnCaptureFinished;
+        _cameraCaptureManager.OnImageCaptured += WebCameraManager_OnFrameCaptured;
         //screen capture
         //===========================================================================
         _comunicator.OnScreenCaptureFrameReceived += Comunicator_OnScreenFrameReceived;
@@ -749,7 +741,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnErrorReceived += Comunicator_OnErrorReceived;
         _comunicator.OnSuccessReceived += Comunicator_OnSuccessReceived;
         _comunicator.OnFileUploaded += _comunicator_OnFileUploaded;
-        _applicationData.ThemeManager.OnThemeChanged += NotifyThemeChanged;
+        _applicationData.ThemeChangeManager.OnThemeChanged += NotifyThemeChanged;
         //audio
         //===========================================================================
         _applicationData.MicrophoneCaptureManager.OnSoundCaptured += MicrophonManager_SoundReceived;
@@ -780,7 +772,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         });
     }
 
-    void ISeverEventSubsribable.UnsubscribeEvents()
+    public void UnsubscribeEvents()
     {
         //participating
         //===========================================================================
@@ -794,10 +786,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnCameraFrameReceived -= Comunicator_OnCameraFrameReceived;
         _comunicator.OnUser_TurnedCamera_OFF -= Comunicator_OnCameraTurnedOff;
         _comunicator.OnUser_TurnedCamera_ON -= Comunicator_OnCameraTurnedOn;
-        _webCamera.OnError -= Comunicator_OnErrorReceived;
-        _webCamera.OnCaptureStarted -= WebCameraManager_OnCaptureStarted;
-        _webCamera.OnCaptureFinished -= WebCameraManager_OnCaptureFinished;
-        _webCamera.OnImageCaptured -= WebCameraManager_OnFrameCaptured;
+        _cameraCaptureManager.OnError -= Comunicator_OnErrorReceived;
+        _cameraCaptureManager.OnCaptureStarted -= WebCameraManager_OnCaptureStarted;
+        _cameraCaptureManager.OnCaptureFinished -= WebCameraManager_OnCaptureFinished;
+        _cameraCaptureManager.OnImageCaptured -= WebCameraManager_OnFrameCaptured;
         //screen capture
         //===========================================================================
         _comunicator.OnScreenCaptureFrameReceived -= Comunicator_OnScreenFrameReceived;
@@ -812,7 +804,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnMessageSent -= Comunicator_OnMessageReceived;
         _comunicator.OnErrorReceived -= Comunicator_OnErrorReceived;
         _comunicator.OnSuccessReceived -= Comunicator_OnSuccessReceived;
-        _applicationData.ThemeManager.OnThemeChanged -= NotifyThemeChanged;
+        _applicationData.ThemeChangeManager.OnThemeChanged -= NotifyThemeChanged;
         //audio
         //===========================================================================
         _applicationData.MicrophoneCaptureManager.OnSoundCaptured -= MicrophonManager_SoundReceived;
@@ -824,13 +816,14 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     }
     public void Dispose()
     {
-        var vm = this as ISeverEventSubsribable;
-        _webCamera.StopCapturing();
+        _cameraCaptureManager.StopCapturing();
         _screenCaptureManager.StopCapturing();
+        _microphonCaptureManager.StopRecording();
+        _meetingTokenSource.Cancel();
+        _meetingTokenSource.Dispose();
+        UnsubscribeEvents();
 
-        vm.UnsubscribeEvents();
-
-        _applicationData.Comunicator.Send_UserLeftMeeting(CurrentUser.Id, MeetingId);
+        _applicationData.ZoomClient.Send_UserLeftMeeting(CurrentUser.Id, MeetingId);
     }
     #endregion
 }

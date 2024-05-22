@@ -24,7 +24,7 @@ public class ZoomClient
     private readonly TimeSpan _serverTimeout;
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
-    private CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _cts = new();
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
     private FrameBuilder _screenCaptureBuilder = new(0);
 
@@ -81,7 +81,7 @@ public class ZoomClient
 
 
     #region Run\Stop
-    public void Run()
+    public void Start()
     {
         if (!IsRunning)
         {
@@ -97,8 +97,9 @@ public class ZoomClient
     {
         if (IsRunning)
         {
-            _cts.Cancel();
-            _cts.Dispose();
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
             IsRunning = false;
         }
     }

@@ -5,12 +5,12 @@ namespace Zoom_UI.MVVM.ViewModels;
 public class MainViewModel : ViewModelBase, IDisposable
 {
     private ApplicationData _data;
-    public ViewModelBase? CurrentViewModel => _data.Navigator.CurrentViewModel;
+    public ViewModelBase? CurrentViewModel => _data.PagesNavigator.CurrentViewModel;
     
     public MainViewModel(ApplicationData data)
     {
         _data = data;
-        _data.Navigator.OnCurrentViewModelChanged += () => OnPropertyChanged(nameof(CurrentViewModel));
+        _data.PagesNavigator.OnCurrentViewModelChanged += () => OnPropertyChanged(nameof(CurrentViewModel));
     }
 
     public void Dispose()
@@ -27,7 +27,7 @@ public class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
-            _data.Comunicator.Stop();
+            _data.ZoomClient.Stop();
         }
         catch (Exception)
         {

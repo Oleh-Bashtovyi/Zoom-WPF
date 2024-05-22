@@ -1,5 +1,6 @@
 ﻿using NAudio.Wave;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using WebEye.Controls.Wpf;
 using Zoom_Server.Logging;
@@ -9,13 +10,12 @@ using Zoom_UI.Managersl;
 using Zoom_UI.MVVM.Core;
 using Zoom_UI.MVVM.Models;
 using Zoom_UI.MVVM.ViewModels;
-
 namespace Zoom_UI;
 
 
 public partial class App : Application
 {
-    private readonly ZoomClient comunicator;
+    private readonly ZoomClient zoomClient;
     private readonly ViewModelNavigator viewModelNavigator;
     private readonly WebCameraControl webCamera;
     private readonly ThemeManager themeManager;
@@ -33,18 +33,18 @@ public partial class App : Application
 
     public App()
     {
-        waveFormat = new WaveFormat(44100, 16, 1);
+        waveFormat = new(44100, 16, 1);
+        microphoneCaptureManager = new(waveFormat);
         audioManager = new(waveFormat);
         ErrorLoger = new(ErrorsBuffer);
-        comunicator = new(_serverIP, _serverPort, ErrorLoger, TimeSpan.FromSeconds(20));
-        viewModelNavigator = new ViewModelNavigator();
+        zoomClient = new(_serverIP, _serverPort, ErrorLoger, TimeSpan.FromSeconds(20));
+        viewModelNavigator = new();
         webCamera = new WebCameraControl();
         themeManager = new ThemeManager();
-        cameraCaptureManager = new WebCameraCaptureManager(webCamera);
+        cameraCaptureManager = new WebCameraCaptureManager(webCamera, 15);
         screenCaptureManager = new ScreenCaptureManager(1080, 1920, 10);
-        microphoneCaptureManager = new(waveFormat);
         applicationData = new(
-            comunicator, 
+            zoomClient, 
             cameraCaptureManager, 
             themeManager, 
             viewModelNavigator, 
@@ -67,16 +67,22 @@ public partial class App : Application
         };
 
         MainWindow.Show();
-        comunicator.Run();
-        audioManager.Play();
+        zoomClient.Start();
+        audioManager.Start();
         base.OnStartup(e);
-        //this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+        this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+        this.Exit += App_Exit;
     }
 
-
-
-
-
+    private void App_Exit(object sender, ExitEventArgs e)
+    {
+        zoomClient.Stop();
+        cameraCaptureManager.StopCapturing();
+        screenCaptureManager.StopCapturing();
+        microphoneCaptureManager.StopRecording();
+        audioManager.Stop();
+        audioManager.Dispose();
+    }
 
     private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
     {
@@ -87,7 +93,13 @@ public partial class App : Application
 
     private void HandleException(Exception exception)
     {
-        MessageBox.Show($"An unexpected error occurred: {exception.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        const string errorsDirectory = "./APP_ERRORS";
+
+        var path = $"{errorsDirectory}/ERROR - {DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss")}.txt";
+
+        Directory.CreateDirectory(errorsDirectory);
+        File.WriteAllText(path, exception.ToString());
+
     }
 
     private void ShutdownApplication()

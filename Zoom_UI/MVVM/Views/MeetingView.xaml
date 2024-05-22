@@ -35,15 +35,10 @@
                 Style="{DynamicResource DefaultBorder}"
                 Background="{DynamicResource MainBrush}">
 
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <DockPanel LastChildFill="True">
 
                 <!--GRID OF PARTICIPANTS-->
-                <ScrollViewer DockPanel.Dock="Top">
+                <ScrollViewer VerticalAlignment="Center" DockPanel.Dock="Top">
                     <ScrollViewer.Resources>
                         <Style TargetType="ScrollViewer">
                             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
@@ -71,7 +66,7 @@
                 </ScrollViewer>
 
                 <!--SCREEN DEMONSTRATION-->
-                <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Grid.Row="1" DockPanel.Dock="Top" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock.Resources>
                         <Style TargetType="TextBlock">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -87,10 +82,9 @@
                           Text="{Binding ScreenDemonstrator.Username}" FontSize="12"
                           Foreground="{DynamicResource WarningBrush}"/>
                 </TextBlock>
-                
+
                 <Image Grid.Row="2" Source="{Binding ScreenDemonstrationImage}"
-                       Margin="5 10 5 5" 
-                       DockPanel.Dock="Bottom"
+                       Margin="5 10 5 5" DockPanel.Dock="Bottom"
                        RenderOptions.BitmapScalingMode="HighQuality">
                     <Image.Resources>
                         <Style TargetType="Image">
@@ -103,7 +97,7 @@
                         </Style>
                     </Image.Resources>
                 </Image>
-            </Grid>
+            </DockPanel>
         </Border>
         
 

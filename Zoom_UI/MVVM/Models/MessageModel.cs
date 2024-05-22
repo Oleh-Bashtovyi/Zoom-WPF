@@ -5,7 +5,7 @@ public class MessageModel
     public string From {  get; set; }
     public string To { get; set; }
     public DateTime When { get; set; }
-    public object Content { get; set; }
+    public object? Content { get; set; }
 
 
     public MessageModel() { }

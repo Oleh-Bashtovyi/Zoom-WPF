@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Net;
+using System.Net.Sockets;
 using Zoom_Server.Extensions;
 using Zoom_Server.Logging;
 using Zoom_Server.Net.Codes;
@@ -346,14 +347,8 @@ internal class ZoomServer
                     {
                         if (meeting.ScreenDemonstartor.Id != userId)
                         {
-                            using (var ms = new MemoryStream())
-                            using (var bw = new BinaryWriter(ms))
-                            {
-                                bw.Write((byte)OpCode.ERROR);
-                                bw.Write((byte)ErrorCode.SCREEN_CAPTURE_DOES_NOT_ALLOWED);
-                                bw.Write("Screen capture is already taken!");
-                                await udpServer.SendAsync(ms.ToArray(), udpResult.RemoteEndPoint, token);
-                            }
+                            await Broadcast_Error(ErrorCode.SCREEN_CAPTURE_DOES_NOT_ALLOWED,
+                                "Screen capture is already taken!", udpResult.RemoteEndPoint, token);
                         }
                         else log.LogWarning("User already demstrate screen!");
 
@@ -711,6 +706,8 @@ internal class ZoomServer
         }
         else
         {
+            await Broadcast_Error(ErrorCode.MEETING_DOES_NOT_EXISTS,
+    $"Such meeting ({meetingId}) does not exist!", udpResult.RemoteEndPoint, token);
             log.LogError($"No such meeting! exisiting meetings: {string.Join(',', Meetings.Select(x => x.Id))}");
         }
     }
@@ -726,6 +723,24 @@ internal class ZoomServer
         FileManager.CreateMeetingCatalog(newMeeting.Id);
         await Broadcast_MeetingInfoToConnectedUser(newMeeting, newUser, token);
     }
+
+
+
+
+
+    private async Task Broadcast_Error(ErrorCode errorCode, string message, IPEndPoint remoteEndPoint, CancellationToken token)
+    {
+        using (var ms = new MemoryStream())
+        using (var bw = new BinaryWriter(ms))
+        {
+            bw.Write((byte)OpCode.ERROR);
+            bw.Write((byte)errorCode);
+            bw.Write(message);
+            await udpServer.SendAsync(ms.ToArray(), remoteEndPoint, token);
+        }
+    }
+    
+
 
 
 

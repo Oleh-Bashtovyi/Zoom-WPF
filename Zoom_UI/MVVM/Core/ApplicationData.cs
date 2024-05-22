@@ -4,21 +4,19 @@ using Zoom_UI.ClientServer;
 using Zoom_UI.Managers;
 using Zoom_UI.Managersl;
 using Zoom_UI.MVVM.Models;
-
 namespace Zoom_UI.MVVM.Core;
 
 public class ApplicationData
 {
-    public ZoomClient Comunicator { get; }
-    public WebCameraCaptureManager WebCamera {  get; }
-    public ScreenCaptureManager ScreenCaptureManager { get; }
-    public ThemeManager ThemeManager { get; }
-    public ViewModelNavigator Navigator { get; }
+    public ZoomClient ZoomClient { get; }
+    public WebCameraCaptureManager WebCameraCaptureManager {  get; }
     public MicrophoneCaptureManager MicrophoneCaptureManager { get; }
+    public ScreenCaptureManager ScreenCaptureManager { get; }
+    public ThemeManager ThemeChangeManager { get; }
+    public AudioManager AudioManager { get; }
+    public ViewModelNavigator PagesNavigator { get; }
     public ObservableCollection<DebugMessage> ErrorsBuffer { get; }
     public LoggerWithCollection LoggerWithCollection { get; }
-    public AudioManager AudioManager { get; }
-
     public ApplicationData(
         ZoomClient comunicator,
         WebCameraCaptureManager webCamera, 
@@ -29,10 +27,10 @@ public class ApplicationData
         LoggerWithCollection logger,
         AudioManager audioManager)
     {
-        Comunicator = comunicator;
-        WebCamera = webCamera;
-        ThemeManager = themeManager;
-        Navigator = navigator;
+        ZoomClient = comunicator;
+        WebCameraCaptureManager = webCamera;
+        ThemeChangeManager = themeManager;
+        PagesNavigator = navigator;
         ScreenCaptureManager = screenCaptureManager;
         MicrophoneCaptureManager = microphoneCaptureManager;
         LoggerWithCollection = logger;

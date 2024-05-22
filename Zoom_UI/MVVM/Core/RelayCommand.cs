@@ -51,7 +51,10 @@ internal class PlannedMeetingRelayCommand : ICommand
 
     public void Execute(object? parameter)
     {
-        _execute(parameter as PlannedMeetingViewModel);
+        if(parameter is PlannedMeetingViewModel planedMeeting)
+        {
+            _execute(planedMeeting);
+        }
     }
 }
 
@@ -74,6 +77,9 @@ internal class FileRelayCommand : ICommand
 
     public void Execute(object? parameter)
     {
-        _execute(parameter as FileModel);
+        if(parameter is FileModel file)
+        {
+            _execute(file);
+        }
     }
 }

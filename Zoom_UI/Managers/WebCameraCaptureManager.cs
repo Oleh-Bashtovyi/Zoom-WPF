@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Windows;
+using System.Windows.Threading;
 using WebEye.Controls.Wpf;
 using Zoom_Server.Net.Codes;
 using Zoom_UI.MVVM.Models;
@@ -8,22 +9,23 @@ namespace Zoom_UI.Managers;
 
 public class WebCameraCaptureManager 
 {
-    private CancellationTokenSource CameraTokenSource = new();
+    private DispatcherTimer _timer = new();
     public WebCameraControl WebCamera { get; private set; }
     public Bitmap? CurrentBitmap { get; private set; }
     public int Fps {  get; private set; }
+    public TimeSpan GetIntervalBetweenFrames => TimeSpan.FromMilliseconds(1000.0 / Fps);
 
     public event Action<Bitmap?>? OnImageCaptured;
     public event Action<ErrorModel>? OnError;
     public event Action? OnCaptureStarted;
     public event Action? OnCaptureFinished;
 
-
     public WebCameraCaptureManager(WebCameraControl webCamera, int fps = 15)
     {
         WebCamera = webCamera;
         Fps = fps;
-        CameraTokenSource.Cancel();
+        _timer.Interval = GetIntervalBetweenFrames;
+        _timer.Tick += Timer_Tick;
     }
 
     public IEnumerable<WebCameraId> GetInputDevices()
@@ -31,75 +33,67 @@ public class WebCameraCaptureManager
         return WebCamera.GetVideoCaptureDevices();
     }
 
-
     public void StartCapturing(WebCameraId cameraId)
     {
-        if (CameraTokenSource != null && !CameraTokenSource.IsCancellationRequested)
+        try
         {
-            return;
+            if (!_timer.IsEnabled)
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    WebCamera.StartCapture(cameraId);
+                });
+
+                _timer.Start();
+                OnCaptureStarted?.Invoke();
+            }
         }
-
-        CameraTokenSource?.Dispose();
-        CameraTokenSource = new();
-
-        Application.Current.Dispatcher.Invoke(() =>
+        catch (Exception ex)
         {
-            WebCamera.StartCapture(cameraId);
-            Task.Run(async () => await CaptureProcess(Fps, CameraTokenSource.Token));
-        });
+            OnError?.Invoke(new(ErrorCode.GENERAL, "(CAPTURE START ERROR) - " +  ex.Message));
+        }
     }
-
 
     public void StopCapturing()
     {
         try
         {
-            CameraTokenSource.Cancel();
-
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                WebCamera.StopCapture();
-            });
-        }
-        catch (Exception)
-        {
-        }
-    }
-
-
-
-    private async Task CaptureProcess(int fps, CancellationToken token)
-    {
-        try
-        {
-            OnCaptureStarted?.Invoke();
-
-            var delay = (int)(1000d / fps);
-
-            while (true)
+            if (_timer.IsEnabled)
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (WebCamera.IsCapturing)
-                    {
-                        CurrentBitmap = WebCamera.GetCurrentImage();
-
-                    }
+                    WebCamera.StopCapture();
                 });
 
-                OnImageCaptured?.Invoke(CurrentBitmap);
-
-                await Task.Delay(delay, token);
+                _timer.Stop();
+                OnCaptureFinished?.Invoke();
             }
         }
-        catch (OperationCanceledException) { }
+        catch(Exception ex) 
+        {
+            OnError?.Invoke(new(ErrorCode.GENERAL, "(CAPTURE STOP ERROR) - " + ex.Message));  
+        }
+    }
+
+    private void Timer_Tick(object? sender, EventArgs e)
+    {
+        try
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (WebCamera.IsCapturing)
+                {
+                    CurrentBitmap = WebCamera.GetCurrentImage();
+
+                }
+            });
+
+            OnImageCaptured?.Invoke(CurrentBitmap);
+        }
         catch (Exception ex)
         {
-            OnError?.Invoke(new(ErrorCode.GENERAL, ex.Message));
-        }
-        finally
-        {
-            OnCaptureFinished?.Invoke();
+            OnError?.Invoke(new(ErrorCode.GENERAL, "(CAPTURE PROCESS ERROR) - " + ex.Message));
+            StopCapturing();
         }
     }
 }

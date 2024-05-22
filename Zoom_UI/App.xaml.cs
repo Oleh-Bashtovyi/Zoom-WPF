@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using NAudio.Wave;
+using System.Collections.ObjectModel;
 using System.Windows;
 using WebEye.Controls.Wpf;
 using Zoom_Server.Logging;
@@ -24,12 +25,16 @@ public partial class App : Application
     private readonly MicrophoneCaptureManager microphoneCaptureManager;
     private readonly ObservableCollection<DebugMessage> ErrorsBuffer = new();
     private readonly LoggerWithCollection ErrorLoger;
+    private readonly WaveFormat waveFormat;
+    private readonly AudioManager audioManager;
 
     private int _serverPort = 9999;
     private string _serverIP = "127.0.0.1";
 
     public App()
     {
+        waveFormat = new WaveFormat(44100, 16, 1);
+        audioManager = new(waveFormat);
         ErrorLoger = new(ErrorsBuffer);
         comunicator = new(_serverIP, _serverPort, ErrorLoger, TimeSpan.FromSeconds(20));
         viewModelNavigator = new ViewModelNavigator();
@@ -37,7 +42,7 @@ public partial class App : Application
         themeManager = new ThemeManager();
         cameraCaptureManager = new WebCameraCaptureManager(webCamera);
         screenCaptureManager = new ScreenCaptureManager(1080, 1920, 10);
-        microphoneCaptureManager = new();
+        microphoneCaptureManager = new(waveFormat);
         applicationData = new(
             comunicator, 
             cameraCaptureManager, 
@@ -45,7 +50,9 @@ public partial class App : Application
             viewModelNavigator, 
             screenCaptureManager,
             microphoneCaptureManager,
-            ErrorLoger);
+            ErrorLoger,
+            audioManager
+            );
     }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -61,6 +68,7 @@ public partial class App : Application
 
         MainWindow.Show();
         comunicator.Run();
+        audioManager.Play();
         base.OnStartup(e);
         //this.DispatcherUnhandledException += App_DispatcherUnhandledException;
     }

@@ -2,29 +2,30 @@
 
 namespace Zoom_UI.Managers
 {
-    internal class AudioManager : IDisposable
+    public class AudioManager : IDisposable
     {
         private WaveOut _waveOut = new();
         private BufferedWaveProvider waveProvider;
 
 
-        internal AudioManager(WaveFormat waveFormat)
+        public AudioManager(WaveFormat waveFormat)
         {
             waveProvider = new BufferedWaveProvider(waveFormat);
             _waveOut.Init(waveProvider);
         }
 
-        internal void Play()
+        public void Play()
         {
+            waveProvider.ClearBuffer();
             _waveOut.Play();
         }
 
-        internal void Stop()
+        public void Stop()
         {
             _waveOut.Stop();
         }
 
-        internal void PlayAudio(byte[] audio)
+        public void PlayAudio(byte[] audio)
         {
             waveProvider.AddSamples(audio, 0, audio.Length);
         }

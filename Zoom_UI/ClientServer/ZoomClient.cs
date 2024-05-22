@@ -25,14 +25,11 @@ public class ZoomClient
     private UdpClient _comunicator;
     private IPEndPoint _serverEndPoint;
     private CancellationTokenSource _cts = new();
+    private Dictionary<int, FrameBuilder> User_CameraFrame = new();
+    private FrameBuilder _screenCaptureBuilder = new(0);
 
     public bool IsRunning { get; private set; }
     public DateTime ServerLastPong { get; private set; }
-    private BlockingCollection<byte[]> SendingBuffer { get; } = new();
-
-
-    private Dictionary<int, FrameBuilder> User_CameraFrame = new();
-    private FrameBuilder _screenCaptureBuilder = new(0);
 
     //RESPONSE
     //========================================================================
@@ -91,7 +88,6 @@ public class ZoomClient
             _cts = new();
             var token = _cts.Token;
 
-            Task.Run(() => SendingProcess(_cts.Token));
             Task.Run(() => ReceivingProcess(_cts.Token));
             Task.Run(() => PingProcess(_cts.Token));
             IsRunning = true;
@@ -121,7 +117,7 @@ public class ZoomClient
         {
             bw.Write((byte)OpCode.CREATE_MEETING);
             bw.Write(username);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     public void Send_JoinMeetingUsingCode(int meetingCode, string username)
@@ -132,7 +128,7 @@ public class ZoomClient
             bw.Write((byte)OpCode.PARTICIPANT_USES_CODE_TO_JOIN_MEETING);
             bw.Write(username);
             bw.Write(meetingCode);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     public void Send_UserLeftMeeting(int userId, int meetingId)
@@ -172,7 +168,7 @@ public class ZoomClient
                     bw.Write(cluster.Length);
                     bw.Write(cluster);
 
-                    SendingBuffer.Add(ms.ToArray());
+                    _comunicator.Send(ms.ToArray(), _serverEndPoint);
                 }
                 else
                 {
@@ -183,7 +179,7 @@ public class ZoomClient
                     bw.Write(i);
                     bw.Write(cluster.Length);
                     bw.Write(cluster);
-                    SendingBuffer.Add(ms.ToArray());
+                    _comunicator.Send(ms.ToArray(), _serverEndPoint);
                 }
             }
         }
@@ -234,7 +230,7 @@ public class ZoomClient
                     bw.Write(cluster.Length);
                     bw.Write(cluster);
 
-                    SendingBuffer.Add(ms.ToArray());
+                    _comunicator.Send(ms.ToArray(), _serverEndPoint);
                 }
                 else
                 {
@@ -245,7 +241,7 @@ public class ZoomClient
                     bw.Write(i);
                     bw.Write(cluster.Length);
                     bw.Write(cluster);
-                    SendingBuffer.Add(ms.ToArray());
+                    _comunicator.Send(ms.ToArray(), _serverEndPoint);
                 }
             }
         }
@@ -260,7 +256,7 @@ public class ZoomClient
             bw.Write(fromUserId);
             bw.Write(meetingId);
             bw.Write(message);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     public void Send_Message(int senderUserId, int receiverUserId, int meetingId, string message)
@@ -273,7 +269,7 @@ public class ZoomClient
             bw.Write(receiverUserId);
             bw.Write(meetingId);
             bw.Write(message);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     //=================================================================
@@ -308,7 +304,7 @@ public class ZoomClient
                     bw.Write((long)i * bufferSize);   //cursor position
                     bw.Write(bytesCount);
                     bw.Write(data);
-                    SendingBuffer.Add(ms.ToArray());
+                    _comunicator.Send(ms.ToArray(), _serverEndPoint);
                 }
             }
             if (token.IsCancellationRequested)
@@ -351,7 +347,7 @@ public class ZoomClient
                     bw.Write((long)(i * bufferSize));   //cursor position
                     bw.Write(bytesCount);
                     bw.Write(data);
-                    SendingBuffer.Add(ms.ToArray());
+                    _comunicator.Send(ms.ToArray(), _serverEndPoint);
                 }
             }
             if (token.IsCancellationRequested)
@@ -370,7 +366,7 @@ public class ZoomClient
             bw.Write((byte)OpCode.PARTICIPANT_SEND_FILE_DELETE);
             bw.Write(meetingId);
             bw.Write(fileId);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     //=================================================================
@@ -383,7 +379,7 @@ public class ZoomClient
             bw.Write(meetingId);
             bw.Write(fileId);
             bw.Write(byteIndex);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     private void SendPacket(OpCode code, int userId, int meetingId)
@@ -394,7 +390,7 @@ public class ZoomClient
             bw.Write((byte)code);
             bw.Write(userId);
             bw.Write(meetingId);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
     private void SendPacket(OpCode code, int userId, int meetingId, byte[] data)
@@ -407,7 +403,7 @@ public class ZoomClient
             bw.Write(meetingId);
             bw.Write(data.Length);
             bw.Write(data);
-            SendingBuffer.Add(ms.ToArray());
+            _comunicator.Send(ms.ToArray(), _serverEndPoint);
         }
     }
 
@@ -416,26 +412,7 @@ public class ZoomClient
 
 
 
-    private async Task SendingProcess(CancellationToken token)
-    {
-        log.LogSuccess("Sending process started!");
 
-        while (true)
-        {
-            try
-            {
-                var packet = SendingBuffer.Take(token);
-                await _comunicator.SendAsync(packet, _serverEndPoint, token);
-                log.LogSuccess($"Packet with sieze: {packet.Length} was sent!");
-            }
-            catch (Exception ex)
-            {
-                log.LogError("(SENDING PROCESS): " + ex.Message);
-                log.LogError("(SENDING PROCESS): Process stoped!");
-                break;
-            }
-        }
-    }
     private async Task PingProcess(CancellationToken token)
     {
         try
@@ -453,7 +430,7 @@ public class ZoomClient
                 }
                 else
                 {
-                    SendingBuffer.Add(data);
+                    _comunicator.Send(data, _serverEndPoint);
                 }
 
                 await Task.Delay(5000, token);
@@ -464,9 +441,6 @@ public class ZoomClient
             log.LogError(ex.Message);
         }
     }
-
-
-
 
 
 
@@ -490,7 +464,7 @@ public class ZoomClient
                 if (opCode == OpCode.PING)
                 {
                     log.LogSuccess($"ping to server!");
-                    SendingBuffer.Add(OpCode.PONG.AsArray());
+                    _comunicator.Send(OpCode.PONG.AsArray(), _serverEndPoint);
                 }
                 else if (opCode == OpCode.PONG)
                 {

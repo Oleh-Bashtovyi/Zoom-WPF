@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using WebEye.Controls.Wpf;
+﻿using System.Collections.ObjectModel;
 using Zoom_Server.Logging;
 using Zoom_UI.ClientServer;
 using Zoom_UI.Managers;
 using Zoom_UI.Managersl;
 using Zoom_UI.MVVM.Models;
-using Zoom_UI.MVVM.ViewModels;
 
 namespace Zoom_UI.MVVM.Core;
 
@@ -24,6 +17,7 @@ public class ApplicationData
     public MicrophoneCaptureManager MicrophoneCaptureManager { get; }
     public ObservableCollection<DebugMessage> ErrorsBuffer { get; }
     public LoggerWithCollection LoggerWithCollection { get; }
+    public AudioManager AudioManager { get; }
 
     public ApplicationData(
         ZoomClient comunicator,
@@ -32,7 +26,8 @@ public class ApplicationData
         ViewModelNavigator navigator,
         ScreenCaptureManager screenCaptureManager,
         MicrophoneCaptureManager microphoneCaptureManager,
-        LoggerWithCollection logger)
+        LoggerWithCollection logger,
+        AudioManager audioManager)
     {
         Comunicator = comunicator;
         WebCamera = webCamera;
@@ -42,5 +37,6 @@ public class ApplicationData
         MicrophoneCaptureManager = microphoneCaptureManager;
         LoggerWithCollection = logger;
         ErrorsBuffer = logger.GetBuffer();
+        AudioManager = audioManager;
     }
 }

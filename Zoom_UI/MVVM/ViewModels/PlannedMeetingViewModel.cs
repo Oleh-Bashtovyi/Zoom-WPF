@@ -4,13 +4,11 @@ public class PlannedMeetingViewModel : ViewModelBase
 {
     private DateTime _plannedTime;
     private string? _description;
-
     public DateTime PlannedTime
     {
         get => _plannedTime;
         set => SetAndNotifyPropertyChanged(ref _plannedTime, value);
     }
-
     public string? Description
     {
         get => _description;

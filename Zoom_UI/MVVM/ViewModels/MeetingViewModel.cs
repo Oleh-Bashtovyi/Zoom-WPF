@@ -34,8 +34,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     private string _message;
     private int _meetingId;
     private int _sellectedAudioDeviceIndex;
-    private WaveOut _waveOut = new();
-    private BufferedWaveProvider waveProvider;
 
     #region PROPERTIES
     public string Message
@@ -162,9 +160,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             SelectedWebCamDevice = WebCameras.First();
         }
-        waveProvider = new BufferedWaveProvider(_applicationData.MicrophoneCaptureManager.GetWaveFormat);
-        _waveOut.Init(waveProvider);
-        _waveOut.Play();
         #endregion
 
         ScreenDemonstrator = meeting.ScreenDemonstrator;
@@ -633,6 +628,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             try
             {
+                //MessageBox.Show("(CAMERA MANAGER): " + model.Message);
                 _screenCaptureManager.StopCapturing();
             }
             catch (Exception)
@@ -667,7 +663,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
     }
     private void MicrophonManager_SoundReceived(byte[] soundBytes)
     {
-        //waveProvider.AddSamples(soundBytes, 0, soundBytes.Length);
         _comunicator.Send_Audio(CurrentUser.Id, MeetingId, soundBytes);
     }
 
@@ -685,10 +680,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             if(user != null)
             {
                 user.IsMicrophoneOn = true;
-
-                ErrorsList.Add(new($"(VIEW_MODEL): User {model.Id} found, micro turn on"));
             }
-            else ErrorsList.Add(new($"(VIEW_MODEL): User with such id: {model.Id} not found for picrophon turning on"));
         });
     }
     private void Comunicator_UserTurnedMicrophoneOff(UserModel model)
@@ -701,22 +693,19 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
             {
                 user.IsMicrophoneOn = false;
 
-                ErrorsList.Add(new($"(VIEW_MODEL): User {model.Id} found, micro turn off"));
             }
-            else ErrorsList.Add(new($"(VIEW_MODEL): User with such id: {model.Id} not found for picrophon turning off"));
         });
     }
     private void Comunicator_SoundReceived(AudioFrame audioFrame)
     {
-/*        if(audioFrame.UserId == CurrentUser.Id)
+        if (audioFrame.UserId == CurrentUser.Id)
         {
             return;
-        }*/
+        }
 
         Application.Current.Dispatcher.Invoke(() =>
         {
-            //ErrorsList.Add(new($"(VIEW_MODEL): Sound received! User: {audioFrame.UserId} Size: {audioFrame.Data.Length}"));
-            waveProvider.AddSamples(audioFrame.Data, 0, audioFrame.Data.Length);
+            _applicationData.AudioManager.PlayAudio(audioFrame.Data);
         });
     }
     #endregion
@@ -741,7 +730,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnCameraFrameReceived += Comunicator_OnCameraFrameReceived;
         _comunicator.OnUser_TurnedCamera_OFF += Comunicator_OnCameraTurnedOff;
         _comunicator.OnUser_TurnedCamera_ON += Comunicator_OnCameraTurnedOn;
-        _webCamera.OnError += Comunicator_OnErrorReceived;
+        _webCamera.OnError += _webCamera_OnError; 
         _webCamera.OnCaptureStarted += WebCameraManager_OnCaptureStarted;
         _webCamera.OnCaptureFinished += WebCameraManager_OnCaptureFinished;
         _webCamera.OnImageCaptured += WebCameraManager_OnFrameCaptured;
@@ -769,6 +758,11 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         _comunicator.OnUser_SentAudioFrame += Comunicator_SoundReceived;
         _comunicator.OnUser_TurnedMicrophone_ON += Comunicator_UserTurnedMicrophoneOn;
         _comunicator.OnUser_TurnedMicrophone_OFF += Comunicator_UserTurnedMicrophoneOff;
+    }
+
+    private void _webCamera_OnError(ErrorModel model)
+    {
+        MessageBox.Show("(CAMERA MANAGER): " + model.Message);
     }
 
     private void _comunicator_OnFileUploaded(MessageInfo obj)

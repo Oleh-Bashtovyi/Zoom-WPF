@@ -2,7 +2,6 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using WebEye.Controls.Wpf;
 using Zoom_UI.ClientServer;
 using Zoom_UI.MVVM.Core;
 using Zoom_UI.MVVM.Models;
@@ -22,9 +21,8 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     private ApplicationData _applicationData;
 
 
-    public bool IsConnected { get; private set; }
-
     public bool UsernameIsNotEmpty => !string.IsNullOrWhiteSpace(Username);
+    public string GetScheduleFile => $"./schedule.txt";
     public string Username
     {
         get => _usernameChangeField;
@@ -49,14 +47,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         get => _plannedMeetingDate;
         set => SetAndNotifyPropertyChanged(ref _plannedMeetingDate, value);
     }
-
-    
     public ObservableCollection<PlannedMeetingViewModel> PlannedMeetings { get; } = new();
-
-    public string GetScheduleFile => $"./schedule.txt";
-
-
-    public ICommand ConnectToServerCommand { get; }
     public ICommand CreateNewMeetingCommand { get; }
     public ICommand JoinMeetingUsingCodeCommand { get; }
     public ICommand CreateNewPlannedMeetingCommand { get; }
@@ -74,11 +65,6 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
         CreateNewMeetingCommand = new RelayCommand(
             () => _comunicator.Send_CreateMeeting(Username),
             () => UsernameIsNotEmpty);
-
-/*        CreateNewMeetingCommand = new RelayCommand(
-    () => _comunicator_OnCurrentUser_JoinedToMeeting(new(12, new("fsfsf",1001))),
-    () => UsernameIsNotEmpty);
-*/
 
         JoinMeetingUsingCodeCommand = new RelayCommand(
             () => 
@@ -98,9 +84,8 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             CreateNewPlannedMeeting,
             () => !string.IsNullOrEmpty(PlannedMeetingDescription));
 
-        Username = "My user";
         RemovePlannedMeetingCommand = new PlannedMeetingRelayCommand(RemovePlannedMeeting);
-
+        Username = "My user";
 
         if (File.Exists(GetScheduleFile))
         {
@@ -111,14 +96,6 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
             File.Create(GetScheduleFile);
         }
     }
-
-
-
-
-
-
-
-
 
 
     private void ReadSchedules(string file)
@@ -171,7 +148,6 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
     }
 
 
-
     void ISeverEventSubsribable.SubscribeEvents()
     {
         _comunicator.OnCurrentUser_JoinedToMeeting += _comunicator_OnCurrentUser_JoinedToMeeting;
@@ -184,11 +160,7 @@ public class HomeViewModel : ViewModelBase, ISeverEventSubsribable
 
     private void _comunicator_OnCurrentUser_JoinedToMeeting(MeetingInfo meeting)
     {
-        //MessageBox.Show($"SWITHCING VIEW... meeting: {meeting}, currentUSer: {meeting.CurrentUser}");
         _navigator.CurrentViewModel = new MeetingViewModel(_applicationData, meeting);
     }
 }
-
-
-
 #pragma warning restore CS8618 

@@ -33,9 +33,6 @@ internal class RelayCommand : ICommand
 }
 
 
-
-
-
 internal class PlannedMeetingRelayCommand : ICommand
 {
     public event EventHandler? CanExecuteChanged;
@@ -57,11 +54,6 @@ internal class PlannedMeetingRelayCommand : ICommand
         _execute(parameter as PlannedMeetingViewModel);
     }
 }
-
-
-
-
-
 
 
 internal class FileRelayCommand : ICommand

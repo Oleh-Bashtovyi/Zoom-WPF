@@ -9,7 +9,7 @@ namespace Zoom_UI.Managers;
 
 public class ScreenCaptureManager
 {
-    private DispatcherTimer Timer = new ();
+    private DispatcherTimer _timer = new ();
     public Bitmap? CurrentBitmap { get; private set; }
     public int CaptureHeight { get; private set; }
     public int CaptureWidth { get; private set; }
@@ -28,25 +28,25 @@ public class ScreenCaptureManager
         Fps = fps;
         CaptureHeight = captureHeight;
         CaptureWidth = captureWidth;
-        Timer.Interval = GetIntervalBetweenFrames;
-        Timer.Tick += Timer_Tick;
+        _timer.Interval = GetIntervalBetweenFrames;
+        _timer.Tick += Timer_Tick;
     }
 
 
     public void StartCapturing()
     {
-        if (!Timer.IsEnabled)
+        if (!_timer.IsEnabled)
         {
-            Timer.Start();
+            _timer.Start();
             OnCaptureStarted?.Invoke();
         }
     }
 
     public void StopCapturing()
     {
-        if(Timer.IsEnabled)
+        if(_timer.IsEnabled)
         {
-            Timer.Stop();
+            _timer.Stop();
             OnCaptureFinished?.Invoke();
         }
     }
@@ -66,7 +66,7 @@ public class ScreenCaptureManager
         catch (Exception ex)
         {
             OnError?.Invoke(new(ErrorCode.GENERAL, ex.Message));
-            throw;
+            StopCapturing();
         }
     }
 
@@ -78,7 +78,8 @@ public class ScreenCaptureManager
 
         using (Graphics graphics = Graphics.FromImage(screenshot))
         {
-            graphics.CopyFromScreen(0, 0, 0, 0, new System.Drawing.Size(CaptureWidth, CaptureHeight));
+            graphics.CopyFromScreen(0, 0, 0, 0, 
+                                    new System.Drawing.Size(CaptureWidth, CaptureHeight));
         }
         return screenshot;
     }

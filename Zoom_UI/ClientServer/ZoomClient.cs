@@ -27,7 +27,6 @@ public class ZoomClient
     private CancellationTokenSource? _cts = new();
     private Dictionary<int, FrameBuilder> User_CameraFrame = new();
     private FrameBuilder _screenCaptureBuilder = new(0);
-
     public bool IsRunning { get; private set; }
     public DateTime ServerLastPong { get; private set; }
 
@@ -72,7 +71,6 @@ public class ZoomClient
         _host = host;
         _port = port;
         _comunicator = new();
-        //_comunicator.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
         _serverEndPoint = new(IPAddress.Parse(_host), _port);
         _serverTimeout = serverTimeout;
         log.LogSuccess("Listener initialized!");

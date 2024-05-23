@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.Windows.Media;
 using Zoom_UI.Managers;
 using Zoom_UI.MVVM.ViewModels;
 
@@ -40,6 +41,8 @@ public partial class MainWindow : Window
         //MessageBox.Show("MAXIMIZATION!");
         Application.Current.MainWindow.WindowState = WindowState.Maximized;
         Application.Current.MainWindow.ResizeMode = ResizeMode.CanMinimize;
+        BorderBrush = Brushes.GreenYellow;
+        BorderThickness = new Thickness(5);
     }
 
     private void OnRecordFinished()
@@ -47,5 +50,6 @@ public partial class MainWindow : Window
         //MessageBox.Show("RETURN!");
         Application.Current.MainWindow.WindowState = WindowState.Normal;
         Application.Current.MainWindow.ResizeMode = ResizeMode.CanResize;
+        BorderThickness = new Thickness(0);
     }
 }

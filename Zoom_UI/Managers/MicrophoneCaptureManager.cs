@@ -13,9 +13,8 @@ public class MicrophoneCaptureManager
     public bool IsMicrophonTurnedOn => _currentWaveIn != null;
     public WaveFormat GetWaveFormat => _waveFormat;
 
-    //24576
-    //16384
-    public MicrophoneCaptureManager(WaveFormat waveFormat, int maxSoundPacketSize = 16384)
+    public MicrophoneCaptureManager(WaveFormat waveFormat, 
+                             int maxSoundPacketSize = 16384)
     {
         _waveFormat = waveFormat;
         _maxSoundPacketSize = maxSoundPacketSize;
@@ -32,7 +31,6 @@ public class MicrophoneCaptureManager
 
         return list;
     }
-
 
     public void StartRecording(int deviceNumber)
     {

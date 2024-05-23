@@ -480,6 +480,10 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             if(model.Id == CurrentUser.Id)
             {
+                _cameraCaptureManager.StopCapturing();
+                _screenCaptureManager.StopCapturing();
+                _screenRecordingManager.StopRecording();
+                _microphonCaptureManager.StopRecording();
                 var homeView = new HomeViewModel(_applicationData);
                 homeView.Username = CurrentUser.Username;
                 _navigator.CurrentViewModel = homeView;

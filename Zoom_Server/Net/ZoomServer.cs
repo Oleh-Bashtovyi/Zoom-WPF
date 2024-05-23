@@ -63,15 +63,12 @@ internal class ZoomServer
             try
             {
                 await Task.Delay(5000, token);
-                
                 await Semaphor.WaitAsync(token).ConfigureAwait(false); ;
 
                 var meetings = Meetings.ToArray();
-
                 foreach(var meeting in meetings)
                 {
                     var clients = meeting.Clients.ToArray();
-
                     foreach(var client in clients)
                     {
                         if (client.CheckLastPong(_clientsInactivityTimeout))
@@ -85,7 +82,6 @@ internal class ZoomServer
                         }
                     }
                 }
-
                 log.LogWarning($"Pong processed!");
             }
             catch (OperationCanceledException)
@@ -109,7 +105,6 @@ internal class ZoomServer
             try
             {
                 var receivedResult = await udpServer.ReceiveAsync(token);
-                //_ = Task.Run(() => HandleRequest(receivedResult, token));
                 await HandleRequest(receivedResult, token);
             }
             catch (OperationCanceledException)
@@ -154,7 +149,6 @@ internal class ZoomServer
     {
         try
         {
-            //await Semaphor.WaitAsync(token).ConfigureAwait(false);
             await Semaphor.WaitAsync(token);
             using var buffMem = new MemoryStream(udpResult.Buffer);
             using var br = new BinaryReader(buffMem);

@@ -480,6 +480,7 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
         {
             if(model.Id == CurrentUser.Id)
             {
+                UnsubscribeEvents();
                 _cameraCaptureManager.StopCapturing();
                 _screenCaptureManager.StopCapturing();
                 _screenRecordingManager.StopRecording();
@@ -487,7 +488,6 @@ public class MeetingViewModel : ViewModelBase, ISeverEventSubsribable, IDisposab
                 var homeView = new HomeViewModel(_applicationData);
                 homeView.Username = CurrentUser.Username;
                 _navigator.CurrentViewModel = homeView;
-                ((ISeverEventSubsribable)this).UnsubscribeEvents();
             }
             else 
             {

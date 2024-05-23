@@ -25,7 +25,7 @@ namespace Zoom_UI.Managers
             _tempName = $"{DateTime.Now.Ticks}.mp4";
             _ffmpegProcess = new Process();
             _ffmpegProcess.StartInfo.FileName = _ffmpegPath;
-            _ffmpegProcess.StartInfo.Arguments = $"{argsS} {_outputPath}\\{_tempName}";
+            _ffmpegProcess.StartInfo.Arguments = $"{args} {_outputPath}\\{_tempName}";
             _ffmpegProcess.StartInfo.UseShellExecute = false;
             _ffmpegProcess.StartInfo.RedirectStandardInput = true;
             _ffmpegProcess.StartInfo.CreateNoWindow = true;

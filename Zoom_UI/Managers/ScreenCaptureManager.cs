@@ -9,7 +9,7 @@ namespace Zoom_UI.Managers;
 
 public class ScreenCaptureManager
 {
-    private DispatcherTimer Timer = new ();
+    private DispatcherTimer _timer = new ();
     public Bitmap? CurrentBitmap { get; private set; }
     public int CaptureHeight { get; private set; }
     public int CaptureWidth { get; private set; }
@@ -28,22 +28,27 @@ public class ScreenCaptureManager
         Fps = fps;
         CaptureHeight = captureHeight;
         CaptureWidth = captureWidth;
-        Timer.Interval = GetIntervalBetweenFrames;
-        Timer.Tick += Timer_Tick;
+        _timer.Interval = GetIntervalBetweenFrames;
+        _timer.Tick += Timer_Tick;
     }
 
 
     public void StartCapturing()
     {
-        Timer.Start();
-        OnCaptureStarted?.Invoke();
+        if (!_timer.IsEnabled)
+        {
+            _timer.Start();
+            OnCaptureStarted?.Invoke();
+        }
     }
-
 
     public void StopCapturing()
     {
-        Timer.Stop();
-        OnCaptureFinished?.Invoke();
+        if(_timer.IsEnabled)
+        {
+            _timer.Stop();
+            OnCaptureFinished?.Invoke();
+        }
     }
 
 
@@ -61,7 +66,7 @@ public class ScreenCaptureManager
         catch (Exception ex)
         {
             OnError?.Invoke(new(ErrorCode.GENERAL, ex.Message));
-            throw;
+            StopCapturing();
         }
     }
 
@@ -69,15 +74,12 @@ public class ScreenCaptureManager
 
     private Bitmap Screenshot()
     {
-        // Get the size of the primary screen using SystemParameters
-/*        int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
-        int screenHeight = (int)SystemParameters.PrimaryScreenHeight;*/
-
         var screenshot = new Bitmap(CaptureWidth, CaptureHeight, PixelFormat.Format32bppArgb);
 
         using (Graphics graphics = Graphics.FromImage(screenshot))
         {
-            graphics.CopyFromScreen(0, 0, 0, 0, new System.Drawing.Size(CaptureWidth, CaptureHeight));
+            graphics.CopyFromScreen(0, 0, 0, 0, 
+                                    new System.Drawing.Size(CaptureWidth, CaptureHeight));
         }
         return screenshot;
     }

@@ -1,7 +1,7 @@
 ﻿namespace Zoom_UI.MVVM.ViewModels;
 
-internal interface ISeverEventSubsribable
+public interface ISeverEventSubsribable
 {
-    internal void Subscribe();
-    internal void Unsubscribe();
+    public void SubscribeEvents();
+    public void UnsubscribeEvents();
 }

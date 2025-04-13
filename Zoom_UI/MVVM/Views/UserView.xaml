@@ -9,11 +9,13 @@
              d:DataContext="{d:DesignInstance viewmodel:UserViewModel}"
              d:DesignHeight="450" d:DesignWidth="800">
     
-    <Border Margin="5" BorderBrush="Black" BorderThickness="1">
+    <Border Margin="5">
         <Border.Resources>
             <Style TargetType="Border">
                 <Setter Property="Width" Value="285"/>
                 <Setter Property="Height" Value="215"/>
+                <Setter Property="BorderBrush" Value="Black"/>
+                <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="Background" Value="{DynamicResource SecondaryBrush}"/>
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding DataContext.IsDemonstrationActive, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ItemsControl}}}" Value="True">
@@ -22,6 +24,10 @@
                     </DataTrigger>
                     <DataTrigger Binding="{Binding IsCurrentUser}" Value="True">
                         <Setter Property="Background" Value="{DynamicResource CurrentUserBackgroundBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsMicrophoneOn}" Value="True">
+                        <Setter Property="BorderThickness" Value="2"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource InformativeBrush}"/>
                     </DataTrigger>
                 </Style.Triggers>
             </Style>

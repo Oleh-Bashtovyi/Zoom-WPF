@@ -1,29 +1,20 @@
-﻿using System.Collections.ObjectModel;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
-
 namespace Zoom_UI.MVVM.Converters;
 
 public class BytesToSizeConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is byte[] bytes)
+        if (value is long size)
         {
-            return FormatFileSize(bytes.Length);
+            return FormatFileSize(size);
         }
 
         return value;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
-    }
-
-
-
-    private string FormatFileSize(int fileSizeInBytes)
+    private string FormatFileSize(long fileSizeInBytes)
     {
         const int kb = 1024;
         const int mb = 1024 * kb;
@@ -47,32 +38,8 @@ public class BytesToSizeConverter : IValueConverter
         return "Error";
     }
 
-
-
-
-
-
-
-    private IReadOnlyDictionary<string, string> _fileExtensionNameToName = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>()
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        {".png", "image, png" },
-        {".html", "html" },
-        {".jpg", "image, jpg" },
-        {".pptx", "presentation" },
-        {".docx", "document" },
-        {".xls", "excel table" },
-        {".txt", "text" },
-        {".cs", "C# file" }
-    });
-    public List<string> GetSupportedExtensions()
-    {
-        return _fileExtensionNameToName.Keys.ToList();
+        throw new NotImplementedException();
     }
 }
-
-
-
-
-
-
-

@@ -42,8 +42,8 @@ namespace Zoom_UI.MVVM.Views
             {
                 MessagesContainer.Visibility = Visibility.Visible;
                 var column_definition = MainGrid.ColumnDefinitions.Last();
-                column_definition.Width = new GridLength(3, GridUnitType.Star);
-                column_definition.MaxWidth = 550;
+                column_definition.Width = new GridLength(1, GridUnitType.Star);
+                column_definition.MaxWidth = 420;
                 column_definition.MinWidth = 320;
                 GridSpliter.IsEnabled = true;
             }
@@ -64,13 +64,13 @@ namespace Zoom_UI.MVVM.Views
         private void UserControl_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             // Update the MainWindow size
-            Window mainWindow = Window.GetWindow(this);
+/*            Window mainWindow = Window.GetWindow(this);
 
             if (mainWindow != null)
             {
                 mainWindow.MinWidth = MinWidth + 30;
                 mainWindow.MinHeight = MinHeight + 30;
-            }
+            }*/
         }
     }
 }

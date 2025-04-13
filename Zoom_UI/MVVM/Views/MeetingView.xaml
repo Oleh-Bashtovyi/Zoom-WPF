@@ -11,8 +11,7 @@
              Loaded="UserControl_Loaded"
              Unloaded="UserControl_Unloaded"
              Background="{DynamicResource SecondaryBrush}"
-             MinHeight="615" MinWidth="1060"
-             MaxWidth="1920" MaxHeight="1080">
+             MinHeight="615" MinWidth="680" >
     
     <Grid x:Name="MainGrid" Background="Transparent">
         <Grid.RowDefinitions>
@@ -20,9 +19,9 @@
             <RowDefinition Height="90"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="5*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="3*" MinWidth="320" MaxWidth="550"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="Auto" MinWidth="1" MaxWidth="1"/>
         </Grid.ColumnDefinitions>
 
         <GridSplitter Grid.Column="1" Grid.RowSpan="2" x:Name="GridSpliter" 
@@ -36,15 +35,10 @@
                 Style="{DynamicResource DefaultBorder}"
                 Background="{DynamicResource MainBrush}">
 
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <DockPanel LastChildFill="True">
 
                 <!--GRID OF PARTICIPANTS-->
-                <ScrollViewer DockPanel.Dock="Top">
+                <ScrollViewer VerticalAlignment="Center" DockPanel.Dock="Top">
                     <ScrollViewer.Resources>
                         <Style TargetType="ScrollViewer">
                             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
@@ -72,7 +66,7 @@
                 </ScrollViewer>
 
                 <!--SCREEN DEMONSTRATION-->
-                <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Grid.Row="1" DockPanel.Dock="Top" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock.Resources>
                         <Style TargetType="TextBlock">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -88,10 +82,9 @@
                           Text="{Binding ScreenDemonstrator.Username}" FontSize="12"
                           Foreground="{DynamicResource WarningBrush}"/>
                 </TextBlock>
-                
-                <Image Grid.Row="2" Source="{Binding ScreenDemonstrationImage}" 
-                       Margin="5 10 5 5" 
-                       DockPanel.Dock="Bottom"
+
+                <Image Grid.Row="2" Source="{Binding ScreenDemonstrationImage}"
+                       Margin="5 10 5 5" DockPanel.Dock="Bottom"
                        RenderOptions.BitmapScalingMode="HighQuality">
                     <Image.Resources>
                         <Style TargetType="Image">
@@ -104,7 +97,7 @@
                         </Style>
                     </Image.Resources>
                 </Image>
-            </Grid>
+            </DockPanel>
         </Border>
         
 
@@ -116,6 +109,7 @@
                 x:Name="MessagesContainer"
                 Margin="10"
                 Padding="0"
+                Visibility="Collapsed"
                 Background="{DynamicResource MainBrush}"
                 Style="{DynamicResource DefaultBorder}">
 
@@ -210,6 +204,41 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="Share meeting"  FontSize="20">
+                    <TabItem.Resources>
+                        <Style TargetType="{x:Type Image}">
+                            <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
+                            <Setter Property="Margin" Value="5"/>
+                        </Style>
+                    </TabItem.Resources>
+
+                    <!--MEETING CODE-->
+                    <!--======================================================-->
+                    <StackPanel Orientation="Horizontal"
+                                Margin="0 40 0 0"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top">
+                        <TextBlock FontSize="20"
+                               Width="100" 
+                               TextWrapping="Wrap" 
+                               Margin="5 0 0 0"
+                               Text="Meeting code:" 
+                               Foreground="{DynamicResource MainFontBrush}"/>
+                        <TextBox IsReadOnly="True"  FontSize="23"
+                             Text="{Binding MeetingId, Mode=OneWay}"
+                             Background="{StaticResource SecondaryBrush}"
+                             Width="80"
+                             Height="35" 
+                             Margin="0 0 0 0"/>
+                        <Button Margin="5 0 0 0" 
+                            Style="{StaticResource RoundButton}"
+                            Command="{Binding CopyMeetingIdCommand}"
+                            Background="{DynamicResource InformativeBrush}">
+                            <Image Source="pack://siteoforigin:,,,/Assets/copy.png"/>
+                        </Button>
+                    </StackPanel>
+                </TabItem>
+                
                 <TabItem Header="Micro\Camera" FontSize="20">
                     <StackPanel Margin="5" Orientation="Vertical">
                         <TextBlock Style="{StaticResource DefaultTextBlock}"
@@ -256,7 +285,7 @@
                   
                 </TabItem>
 
-                <TabItem Header="Errors" FontSize="20">
+                <TabItem Header="Debug" FontSize="20">
                     <ScrollViewer Style="{DynamicResource VerticalScrollViewer}">
                         <ItemsControl ItemsSource="{Binding ErrorsList}" >
                             <ItemsControl.ItemTemplate>
@@ -265,11 +294,15 @@
                                             Padding="5"
                                             Style="{DynamicResource DefaultBorder}" 
                                             Background="{DynamicResource SecondaryBrush}">
-                                        <TextBox HorizontalAlignment="Left"
+                                        <StackPanel Orientation="Vertical">
+                                            <TextBlock Style="{StaticResource MessageTitleTextBlock}"
+                                                       Text="{Binding Time}"/>
+                                            <TextBox HorizontalAlignment="Left"
                                                  IsReadOnly="True"
                                                  VerticalAlignment="Top"
-                                                 Text="{Binding Mode=OneWay}"
-                                                 Margin="0 15 0 0" TextWrapping="Wrap"/>
+                                                 Text="{Binding Content, Mode=OneWay}"
+                                                 Margin="0 5 0 0" TextWrapping="Wrap"/>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -291,31 +324,6 @@
                     </Style>
                 </DockPanel.Resources>
 
-                <!--MEETING CODE-->
-                <!--======================================================-->
-                <StackPanel Orientation="Horizontal" 
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center" 
-                            DockPanel.Dock="Left">
-                    <TextBlock FontSize="20"
-                               Width="100" 
-                               TextWrapping="Wrap" 
-                               Margin="5 0 0 0"
-                               Text="Meeting code:" 
-                               Foreground="{DynamicResource MainFontBrush}"/>
-                    <TextBox IsReadOnly="True"  FontSize="23"
-                             Text="{Binding MeetingId, Mode=OneWay}"
-                             Background="{StaticResource SecondaryBrush}"
-                             Width="80"
-                             Height="35" 
-                             Margin="0 0 0 0"/>
-                    <Button Margin="5 0 0 0" 
-                            Style="{StaticResource RoundButton}"
-                            Command="{Binding CopyMeetingIdCommand}"
-                            Background="{DynamicResource InformativeBrush}">
-                        <Image Source="pack://siteoforigin:,,,/Assets/copy.png"/>
-                    </Button>
-                </StackPanel>
 
                 <!--BUTTONS-->
                 <!--======================================================-->
@@ -361,7 +369,26 @@
                         </Button.Resources>
                         <Image Source="{Binding CurrentUser.IsCameraOn, Converter={StaticResource BoolToCameraImageConverter}}"/>
                     </Button>
-
+                    <!--RECORDING-->
+                    <Button Command="{Binding SwitchRecordingStateCommand}">
+                        <Button.Resources>
+                            <Style TargetType="{x:Type Border}">
+                                <Setter Property="CornerRadius" Value="5"/>
+                            </Style>
+                            <Style TargetType="{x:Type Button}">
+                                <Setter Property="Background"  Value="{DynamicResource OffButton}"/>
+                                <Setter Property="Width" Value="50"/>
+                                <Setter Property="Height" Value="50"/>
+                                <Setter Property="Margin" Value="10 0 0 0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRecordingNow}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource OnButton}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Resources>
+                        <Image Source="pack://siteoforigin:,,,/Assets/record.png"/>
+                    </Button>
 
                     <!--SCREEN SHARE-->
                     <Button Margin="10 0 0 0"
@@ -386,7 +413,7 @@
                         <Image Source="{Binding CurrentTheme, Converter={StaticResource ThemeToImageConverter}}"/>
                     </Button>
                     <!--LEAVE-->
-                    <Button Margin="50 0 0 0"
+                    <Button Margin="10 0 0 0"
                             Style="{StaticResource RoundButton}" 
                             Command="{Binding LeaveMeetingCommand}"
                             Background="{DynamicResource OffButton}">

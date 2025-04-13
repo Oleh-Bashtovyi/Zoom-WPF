@@ -17,20 +17,4 @@ public static class BitmapImageExtensionss
         encoder.Save(ms);
         return ms;
     }
-
-    public static byte[] AsByteArray(this BitmapImage image)
-    {
-        using (var ms = image.AsMemoryStream())
-        {
-            return ms.ToArray();
-        }
-    }
-
-    public static byte[] AsByteArray(this BitmapImage image, BitmapEncoder encoder)
-    {
-        using (var ms = image.AsMemoryStream(encoder))
-        {
-            return ms.ToArray();
-        }
-    }
 }

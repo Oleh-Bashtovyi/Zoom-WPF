@@ -10,7 +10,6 @@
                 <ResourceDictionary>
                     <converters:BoolToMicrophoneImageConverter x:Key="BoolToMicrophoneImageConverter"/>
                     <converters:BoolToCameraImageConverter x:Key="BoolToCameraImageConverter"/>
-                    <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
                     <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
                     <converters:ThemeToImageConverter x:Key="ThemeToImageConverter"/>
                     <converters:BytesToSizeConverter x:Key="BytesToSizeConverter"/>

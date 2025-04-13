@@ -12,8 +12,6 @@ public class UserViewModel : ViewModelBase, IUser
     private UserModel _model;
     private BitmapImage? _cameraImage;
 
-
-
     #region Properties
     public int Id
     {
@@ -64,7 +62,6 @@ public class UserViewModel : ViewModelBase, IUser
         Id = id;
     }
 
-
     private string GetShortName()
     {
         if (string.IsNullOrWhiteSpace(Username))
@@ -84,9 +81,6 @@ public class UserViewModel : ViewModelBase, IUser
         return words[0][0].ToString().ToUpper();
     }
 
-    public UserModel AsModel() => new UserModel(Id, Username);
-
-
     public override bool Equals(object? obj)
     {
         if(obj is  IUser vm)
@@ -95,7 +89,6 @@ public class UserViewModel : ViewModelBase, IUser
         }
         return false;
     }
-
     public override int GetHashCode()
     {
         return Id.GetHashCode();

@@ -41,24 +41,4 @@ public class ThemeManager
             OnThemeChanged?.Invoke(CurrentTheme);
         }
     }
-
-
-
-    /*    private void ReplaceTheme(string newTheme)
-        {
-            var newThemeDict = new ResourceDictionary()
-            {
-                Source = new Uri($"Themes/{newTheme}.xaml", UriKind.Relative)
-            };
-
-
-            ResourceDictionary oldTheme = Application.Current.Resources.MergedDictionaries
-                .FirstOrDefault(d => d.Source.OriginalString == "Themes/LightTheme.xaml");
-
-            if (oldTheme != null)
-            {
-                Application.Current.Resources.MergedDictionaries.Remove(oldTheme);
-            }
-            Application.Current.Resources.MergedDictionaries.Add(newThemeDict);
-        }*/
 }

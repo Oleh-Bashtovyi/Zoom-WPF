@@ -3,25 +3,21 @@ namespace Zoom_UI.Managersl;
 
 public class MicrophoneCaptureManager
 {
-    private int MaxSoundPacketSize = 32768;
-    private List<byte> SoundPacket = new();
+    private int _maxSoundPacketSize;
+    private List<byte> _soundPacket = new();
     private WaveInEvent? _currentWaveIn;
+    private WaveFormat _waveFormat;
     public event Action? OnCaptureStarted;
     public event Action? OnCaptureFinished;
     public event Action<byte[]>? OnSoundCaptured;
-
-    public WaveFormat GetWaveFormat => new(Rate, Bits, Chanels); //audio format(44.1kHz, mono)
     public bool IsMicrophonTurnedOn => _currentWaveIn != null;
-    public int Rate { get; private set; }
-    public int Bits {  get; private set; }
-    public int Chanels {  get; private set; }
+    public WaveFormat GetWaveFormat => _waveFormat;
 
-    public MicrophoneCaptureManager(int maxSoundPacketSize = 32768, int rate = 44100, int bits = 16, int chanels = 1)
+    public MicrophoneCaptureManager(WaveFormat waveFormat, 
+                             int maxSoundPacketSize = 16384)
     {
-        Rate = rate;
-        Bits = bits;
-        Chanels = chanels;
-        MaxSoundPacketSize = maxSoundPacketSize;
+        _waveFormat = waveFormat;
+        _maxSoundPacketSize = maxSoundPacketSize;
     }
 
     public IEnumerable<WaveInCapabilities> GetInputDevices()
@@ -36,17 +32,16 @@ public class MicrophoneCaptureManager
         return list;
     }
 
-
     public void StartRecording(int deviceNumber)
     {
         if(_currentWaveIn == null)
         {
             _currentWaveIn = new();
             _currentWaveIn.DeviceNumber = deviceNumber;
-            _currentWaveIn.WaveFormat = GetWaveFormat; 
+            _currentWaveIn.WaveFormat = _waveFormat; 
             _currentWaveIn.DataAvailable += WaveIn_DataAvailable;
             _currentWaveIn.StartRecording();
-            SoundPacket.Clear();
+            _soundPacket.Clear();
             OnCaptureStarted?.Invoke();
         }
     }
@@ -64,16 +59,12 @@ public class MicrophoneCaptureManager
 
     private void WaveIn_DataAvailable(object? sender, WaveInEventArgs args)
     {
-        byte[] soundBytes = new byte[args.BytesRecorded];
+        _soundPacket.AddRange(args.Buffer);
 
-        Array.Copy(args.Buffer, soundBytes, args.BytesRecorded);
-
-        SoundPacket.AddRange(soundBytes);
-
-        if(SoundPacket.Count >= MaxSoundPacketSize)
+        if(_soundPacket.Count >= _maxSoundPacketSize)
         {
-            OnSoundCaptured?.Invoke(SoundPacket.ToArray());
-            SoundPacket.Clear();
+            OnSoundCaptured?.Invoke(_soundPacket.ToArray());
+            _soundPacket.Clear();
         }
     }
 }

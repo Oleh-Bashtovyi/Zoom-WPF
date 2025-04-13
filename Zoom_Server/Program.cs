@@ -6,17 +6,20 @@ namespace Zoom_Server
     internal class Program
     {
         //internal static Serverrrrr server;
-        internal static UdpServer server;
+        internal static ZoomServer server;
 
         static string serverIP = "127.0.0.1";
         static int serverPort = 9999;
 
         static void Main(string[] args)
         {
-            server = new UdpServer(serverIP, serverPort, new LoggerWithConsoleAndTime());
+            server = new ZoomServer(serverIP, serverPort, new LoggerWithConsoleAndTime());
 
-            server.Run();
-            Console.WriteLine("Server started");
+            server.Start();
+            Console.WriteLine("Server started!");
+            Console.WriteLine($"IP: {serverIP}");
+            Console.WriteLine($"PORT: {serverPort}");
+
 
             while (Console.ReadLine() != "exit") { }
 

@@ -2,20 +2,19 @@
 
 public enum OpCode : byte
 {
+    USER_CONNECTED_TO_MEETING,
     //General
     //=============================
     NONE,
     ERROR,
     SUCCESS,
-    ACTIVITY_TIMEOUT_CHECKOUT,
-    //Creation
+    //Ping-Pong
     //=============================
-    GET_USER_ID,
-    CHANGE_USER_NAME,
-    CREATE_USER,
-    CREATE_MEETING,
+    PING,
+    PONG,
     //meeting joining
     //=============================
+    CREATE_MEETING,
     PARTICIPANT_USES_CODE_TO_JOIN_MEETING,
     //meeting process
     //=============================
@@ -33,15 +32,23 @@ public enum OpCode : byte
     PARTICIPANT_TURNED_SCREEN_CAPTURE_OFF,
     PARTICIPANT_SCREEN_CAPTURE_CREATE_FRAME,
     PARTICIPANT_SCREEN_CAPTURE_UPDATE_FRAME,
-    //messages
-    //=============================
-    PARTICIPANT_MESSAGE_SENT_EVERYONE,
-    PARTICIPANT_FILE_SEND_REQUEST,
-    PARTICIPANT_FILE_SEND_FRAME_CREATE,
-    PARTICIPANT_FILE_SEND_FRAME_UPDATE,
     //audio
     //=============================
     PARTICIPANT_SENT_AUDIO,
     PARTICIPANT_TURNED_MICROPHONE_ON,
-    PARTICIPANT_TURNED_MICROPHONE_OFF
+    PARTICIPANT_TURNED_MICROPHONE_OFF,
+    //messages
+    //=============================
+    PARTICIPANT_MESSAGE_SEND_EVERYONE,
+    PARTICIPANT_MESSAGE_SEND,
+    //files
+    //=============================
+    PARTICIPANT_SEND_FILE_PART,
+    PARTICIPANT_SEND_FILE_LAST,
+    PARTICIPANT_SEND_FILE_LAST_EVERYONE,
+    PARTICIPANT_SEND_FILE_DELETE,
+    PARTICIPANT_SEND_FILE_DOWNLOAD,
+    //=============================
+    PARTICIPANT_SEND_FILE_UPLOADED,
+    PARTICIPANT_SEND_FILE_UPLOADED_EVERYONE,
 }

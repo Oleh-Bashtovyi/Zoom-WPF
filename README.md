@@ -30,13 +30,11 @@ A **Zoom-like** video conferencing application built entirely with **.NET** and 
 ## 📷 Screenshots
 
 <p align="center">
-  <img src="ScreenShots/Screenshot_1.png" width="600" alt="Main UI" />
+  <img src="Screenshots/Screenshot_1.png" width="600" alt="Screen demonstration 1" />
   <br/>
-  <em>Main conferencing window</em>
 </p>
 
 <p align="center">
-  <img src="ScreenShots/Screenshot_2.png" width="600" alt="Screen sharing UI" />
+  <img src="Screenshots/Screenshot_2.png" width="600" alt="Screen demonstration 2" />
   <br/>
-  <em>Screen sharing in action</em>
 </p>

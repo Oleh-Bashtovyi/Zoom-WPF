@@ -93,6 +93,7 @@ public partial class App : Application
     {
         HandleException(e.Exception);
         e.Handled = true;
+        MessageBox.Show("ERROR!");
         ShutdownApplication();
     }
 
